@@ -13,9 +13,23 @@ def whatsapp_bot():
     resp = MessagingResponse()
     msg = resp.message()
     
-    msg.body("👋 Hola, bienvenido al bot de inventario.")
-    print(f"📤 Respuesta enviada: {str(resp)}")
-    
+    if incoming_msg.lower() in ["hola", "menu", "inicio"]:
+    user_states.pop(phone_number, None) 
+    menu = (
+        "👋 ¡Bienvenido al bot de inventario!\n"
+        "Elige una opción:\n"
+        "1️⃣ Ver productos\n"
+        "2️⃣ Filtrar por código\n"
+        "3️⃣ Agregar producto\n"
+        "4️⃣ Actualizar producto\n"
+        "5️⃣ Eliminar producto\n"
+        "6️⃣ Registrar entrada\n"
+        "7️⃣ Registrar salida\n"
+        "8️⃣ Reporte\n"
+        "9️⃣ Sugerencias de compra\n"
+        "0️⃣ Revisar stock mínimo / vencimiento"
+    )
+    msg.body(menu)
     return str(resp)
 
 if __name__ == "__main__":
