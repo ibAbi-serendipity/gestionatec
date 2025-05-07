@@ -50,7 +50,7 @@ def whatsapp_bot():
                 respuesta = "📦 *Productos en inventario:*\n"
                 for i, p in enumerate(productos, start=1):
                     respuesta += (
-                        f"{i}. *{p['nombre']}* ({p['marca']})\n"
+                        f"{i}. *{p['nombre']}* ({p['marca']}) - {p['codigo']}\n"
                         f"   🗓️ Vence: {p['fecha']} | 📦 Stock: {p['cantidad']} | 💰 S/ {p['precio']}\n"
                     )
                 msg.body(respuesta)
@@ -140,9 +140,24 @@ def whatsapp_bot():
                     ""  # última compra (puede llenarse luego)
                 ]
                 hoja.append_row(nuevo_producto)
-                msg.body(f"✅ Producto '{estado['nombre']}' agregado con código {codigo}.")
-                user_states.pop(phone_number)
+                msg.body(f"✅ Producto '{estado['nombre']}' agregado con código {codigo}.\n"
+                        "¿Deseas registrar otro producto? (sí / no)")
+                estado.clear()
+                estado["step"] = "confirmar_continuar"
                 return str(resp)
+        
+        # Paso final: Confirmar si desea registrar otro
+        elif estado["step"] == "confirmar_continuar":
+            if incoming_msg.lower() in ["sí", "si"]:
+                estado["step"] = "esperando_datos"
+                msg.body("Por favor envía los datos del nuevo producto en este formato:\n"
+                         "Nombre, Marca, Fecha (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo")
+            elif incoming_msg.lower() == "no":
+                user_states.pop(phone_number)
+                msg.body("📋 Has salido del registro de productos. Escribe 'menu' para ver las opciones.")
+            else:
+                msg.body("❓ Respuesta no válida. Escribe 'sí' para registrar otro producto o 'no' para salir.")
+
     else:
         msg.body("Envía 'menu' para ver las opciones disponibles.")
 
