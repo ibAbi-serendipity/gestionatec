@@ -75,23 +75,24 @@ def get_inventory_sheet_for_number(phone_number):
         return None
 
 def obtener_productos(hoja):
-    data = hoja.get_all_values()[1:]  # Ignora la fila de encabezado
-    productos = []
-    for row in data:
-        if len(row) >= 9:
-            producto = {
-                "codigo": row[0],
-                "nombre": row[1],
-                "marca": row[2],
-                "fecha": row[3],
-                "costo": row[4],
-                "cantidad": row[5],
-                "precio": row[6],
-                "stock_minimo": row[7],
-                "ultima_compra": row[8]
-            }
-            productos.append(producto)
-    return productos
+    try:
+        data = hoja.get_all_values()[1:]  # Ignora la fila de encabezado
+        productos = []
+        for row in data:
+            if len(row) >= 9:
+                producto = {
+                    "codigo": row[0],
+                    "nombre": row[1],
+                    "marca": row[2],
+                    "fecha": row[3],
+                    "costo": row[4],
+                    "cantidad": row[5],
+                    "precio": row[6],
+                    "stock_minimo": row[7],
+                    "ultima_compra": row[8]
+                }
+                productos.append(producto)
+        return productos
     except Exception as e:
         logging.error(f"❌ Error al leer los datos de la hoja del cliente: {e}")
         return None
