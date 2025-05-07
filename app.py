@@ -142,25 +142,7 @@ def whatsapp_bot():
                 hoja.append_row(nuevo_producto)
                 msg.body(f"✅ Producto '{estado['nombre']}' agregado con código {codigo}.")
                 user_states.pop(phone_number)
-
-    # Opción 4: Actualizar producto
-    elif incoming_msg == "4":
-        pass
-
-    # Opción 5: Eliminar producto
-    elif incoming_msg == "5":
-        pass
-
-    # Opción 6: Registrar entrada
-    elif incoming_msg == "6":
-        pass
-
-    # Opción 7: Registrar salida
-    elif incoming_msg == "7":
-        pass
-
-    # Opción 8: Reporte
-    elif incoming_msg == "8":
+                return str(resp)
     else:
         msg.body("Envía 'menu' para ver las opciones disponibles.")
 
