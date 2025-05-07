@@ -1,6 +1,6 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from google_sheets import obtener_productos  # Importamos la función para obtener los productos
+from google_sheets import obtener_productos, get_inventory_sheet_for_number  # Importamos la función para obtener los productos
 
 app = Flask(__name__)
 
@@ -37,19 +37,21 @@ def whatsapp_bot():
 
     # Opción 1: Ver productos
     elif incoming_msg == "1":
-        hoja_cliente = get_inventory_sheet_for_number(phone_number)  # Obtén la hoja de productos del cliente
+        hoja_cliente = get_inventory_sheet_for_number(phone_number)
         if not hoja_cliente:
             msg.body("❌ No se encontró la hoja de productos para tu número.")
         else:
-            productos = obtener_productos(hoja_cliente)  # Obtener productos desde Google Sheets
-            if not productos:
+            productos = obtener_productos(hoja_cliente)
+            if productos is None:
+                msg.body("⚠️ Hubo un error al leer los productos. Intenta nuevamente.")
+            elif not productos:
                 msg.body("📭 No hay productos registrados.")
             else:
-                respuesta = "📦 Productos en inventario:\n"
+                respuesta = "📦 *Productos en inventario:*\n"
                 for i, p in enumerate(productos, start=1):
                     respuesta += (
-                        f"{i}. {p['nombre']} - {p['marca']}, Vence: {p['fecha']}, "
-                        f"Stock: {p['cantidad']} - Precio: S/ {p['precio']}\n"
+                        f"{i}. *{p['nombre']}* ({p['marca']})\n"
+                        f"   🗓️ Vence: {p['fecha']} | 📦 Stock: {p['cantidad']} | 💰 S/ {p['precio']}\n"
                     )
                 msg.body(respuesta)
 
