@@ -55,6 +55,112 @@ def whatsapp_bot():
                     )
                 msg.body(respuesta)
 
+    # Opción 2: Filtrar por código
+    elif incoming_msg == "2":
+        pass
+
+    # Opción 3: Agregar producto
+    elif incoming_msg == "3":
+        user_states[phone_number] = {"step": "esperando_datos"}
+        msg.body("Por favor envía los datos del producto en este formato:\n"
+                 "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra (AAAA-MM-DD)\n")
+
+    elif phone_number in user_states:
+        estado = user_states[phone_number]
+
+        # Paso 1: Esperar datos
+        if estado["step"] == "esperando_datos":
+            partes = [x.strip() for x in incoming_msg.split(",")]
+            if len(partes) != 8:
+                msg.body("❌ Formato incorrecto. Asegúrate de enviar: Nombre, Marca, Fecha, Costo, Cantidad, Precio, Stock Mínimo")
+            else:
+                estado.update({
+                    "nombre": partes[0],
+                    "marca": partes[1],
+                    "fecha": partes[2],
+                    "costo": partes[3],
+                    "cantidad": partes[4],
+                    "precio": partes[5],
+                    "stock_minimo": partes[6],
+                    "ultima_compra": partes[7],
+                    "step": "esperando_categoria"
+                })
+                msg.body("📦 ¿Cuál es la categoría del producto? (perecible / no perecible / limpieza / herramienta o material)")
+
+        # Paso 2: Esperar categoría
+        elif estado["step"] == "esperando_categoria":
+            categorias = {
+                "perecible": "1",
+                "no perecible": "2",
+                "limpieza": "3",
+                "herramienta o material": "4"
+            }
+            cat = incoming_msg.lower()
+            if cat not in categorias:
+                msg.body("❌ Categoría no válida. Elige: perecible / no perecible / limpieza / herramienta o material")
+            else:
+                estado["categoria"] = categorias[cat]
+                estado["step"] = "esperando_empaque"
+                msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre)")
+
+        # Paso 3: Esperar empaque y guardar
+        elif estado["step"] == "esperando_empaque":
+            empaque = incoming_msg.strip().lower()
+            if not empaque:
+                msg.body("❌ Tipo de empaque no válido.")
+            else:
+                estado["empaque"] = empaque
+                hoja = get_inventory_sheet_for_number(phone_number)
+                if not hoja:
+                    msg.body("❌ No se pudo acceder a tu hoja de inventario.")
+                    return str(resp)
+
+                # Leer productos para determinar correlativo
+                productos = hoja.get_all_values()
+                encabezados = productos[0] if productos else []
+                data = productos[1:] if len(productos) > 1 else []
+                correlativos = [
+                    int(p[0][-2:]) for p in data
+                    if p[0].startswith(estado["categoria"] + estado["marca"][0].upper() + empaque[0].upper())
+                    and len(p[0]) >= 4 and p[0][-2:].isdigit()
+                ]
+                nuevo_num = str(max(correlativos, default=0) + 1).zfill(2)
+                codigo = estado["categoria"] + estado["marca"][0].upper() + empaque[0].upper() + nuevo_num
+
+                nuevo_producto = [
+                    codigo,
+                    estado["nombre"],
+                    estado["marca"],
+                    estado["fecha"],
+                    estado["costo"],
+                    estado["cantidad"],
+                    estado["precio"],
+                    estado["stock_minimo"],
+                    estado["ultima_compra"],
+                    ""  # última compra (puede llenarse luego)
+                ]
+                hoja.append_row(nuevo_producto)
+                msg.body(f"✅ Producto '{estado['nombre']}' agregado con código {codigo}.")
+                user_states.pop(phone_number)
+
+    # Opción 4: Actualizar producto
+    elif incoming_msg == "4":
+        pass
+
+    # Opción 5: Eliminar producto
+    elif incoming_msg == "5":
+        pass
+
+    # Opción 6: Registrar entrada
+    elif incoming_msg == "6":
+        pass
+
+    # Opción 7: Registrar salida
+    elif incoming_msg == "7":
+        pass
+
+    # Opción 8: Reporte
+    elif incoming_msg == "8":
     else:
         msg.body("Envía 'menu' para ver las opciones disponibles.")
 
