@@ -117,18 +117,27 @@ def whatsapp_bot():
                     msg.body("❌ No se pudo acceder a tu hoja de inventario.")
                     return str(resp)
 
-                # Leer productos para determinar correlativo
-                productos = hoja.get_all_values()
-                encabezados = productos[0] if productos else []
-                data = productos[1:] if len(productos) > 1 else []
-                correlativos = [
-                    int(p[0][-2:]) for p in data
-                    if p[0].startswith(estado["categoria"] + estado["marca"][0].upper() + empaque[0].upper())
-                    and len(p[0]) >= 4 and p[0][-2:].isdigit()
-                ]
-                nuevo_num = str(max(correlativos, default=0) + 1).zfill(2)
-                codigo = estado["categoria"] + estado["marca"][0].upper() + empaque[0].upper() + nuevo_num
+                # Generar prefijo del código
+                categoria_num = estado["categoria"]
+                marca_inicial = estado["marca"][0].upper()
+                empaque_inicial = empaque[0].upper()
+                prefijo_codigo = f"{categoria_num}{marca_inicial}{empaque_inicial}"
 
+                # Obtener productos existentes
+                productos = hoja.get_all_values()
+                data = productos[1:] if len(productos) > 1 else []
+
+                # Filtrar y contar correlativos con el mismo prefijo
+                correlativos = []
+                for fila in data:
+                    if len(fila) > 0:
+                        codigo = fila[0]
+                        if codigo.startswith(prefijo_codigo) and len(codigo) >= 4 and codigo[-2:].isdigit():
+                            correlativos.append(int(codigo[-2:]))
+
+                nuevo_num = str(max(correlativos, default=0) + 1).zfill(2)
+                codigo = f"{prefijo_codigo}{nuevo_num}"
+                
                 nuevo_producto = [
                     codigo,
                     estado["nombre"],
