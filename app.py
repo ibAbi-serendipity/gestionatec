@@ -1,10 +1,10 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from google_sheets import obtener_productos, get_inventory_sheet_for_number  # Importamos la función para obtener los productos
+from google_sheets import obtener_productos, get_inventory_sheet_for_number
 
 app = Flask(__name__)
 
-user_states = {}  # Aquí definimos el diccionario para guardar el estado de los usuarios
+user_states = {}
 
 @app.route("/webhook", methods=["POST"])
 def whatsapp_bot():
@@ -15,9 +15,9 @@ def whatsapp_bot():
     
     resp = MessagingResponse()
     msg = resp.message()
-    
+
     if incoming_msg.lower() in ["hola", "menu", "inicio"]:
-        user_states.pop(phone_number, None)  # Limpiamos el estado del usuario
+        user_states.pop(phone_number, None)
         menu = (
             "👋 ¡Bienvenido al bot de inventario!\n"
             "Elige una opción:\n"
@@ -37,11 +37,11 @@ def whatsapp_bot():
 
     # Opción 1: Ver productos
     elif incoming_msg == "1":
-        hoja_cliente = get_inventory_sheet_for_number(phone_number)
-        if not hoja_cliente:
+        hoja = get_inventory_sheet_for_number(phone_number)
+        if not hoja:
             msg.body("❌ No se encontró la hoja de productos para tu número.")
         else:
-            productos = obtener_productos(hoja_cliente)
+            productos = obtener_productos(hoja)
             if productos is None:
                 msg.body("⚠️ Hubo un error al leer los productos. Intenta nuevamente.")
             elif not productos:
@@ -60,21 +60,20 @@ def whatsapp_bot():
         user_states[phone_number] = {"step": "esperando_codigo"}
         msg.body("🔍 Escribe el código del producto que deseas consultar:")
 
-
     # Opción 3: Agregar producto
     elif incoming_msg == "3":
         user_states[phone_number] = {"step": "esperando_datos"}
         msg.body("Por favor envía los datos del producto en este formato:\n"
-                 "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra (AAAA-MM-DD)\n")
+                 "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra (AAAA-MM-DD)")
 
     elif phone_number in user_states:
         estado = user_states[phone_number]
 
-        # Paso 1: Esperar datos
         if estado["step"] == "esperando_datos":
             partes = [x.strip() for x in incoming_msg.split(",")]
             if len(partes) != 8:
-                msg.body("❌ Formato incorrecto. Asegúrate de enviar: Nombre, Marca, Fecha, Costo, Cantidad, Precio, Stock Mínimo")
+                msg.body("❌ ERROR. Por favor envia los datos en este formato:\n" 
+                         "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra (AAAA-MM-DD)\n")
             else:
                 estado.update({
                     "nombre": partes[0],
@@ -89,7 +88,6 @@ def whatsapp_bot():
                 })
                 msg.body("📦 ¿Cuál es la categoría del producto? (perecible / no perecible / limpieza / herramienta o material)")
 
-        # Paso 2: Esperar categoría
         elif estado["step"] == "esperando_categoria":
             categorias = {
                 "perecible": "1",
@@ -105,7 +103,6 @@ def whatsapp_bot():
                 estado["step"] = "esperando_empaque"
                 msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre)")
 
-        # Paso 3: Esperar empaque y guardar
         elif estado["step"] == "esperando_empaque":
             empaque = incoming_msg.strip().lower()
             if not empaque:
@@ -117,10 +114,9 @@ def whatsapp_bot():
                     msg.body("❌ No se pudo acceder a tu hoja de inventario.")
                     return str(resp)
 
-                # Leer productos para determinar correlativo
                 productos = hoja.get_all_values()
-                encabezados = productos[0] if productos else []
                 data = productos[1:] if len(productos) > 1 else []
+
                 correlativos = [
                     int(p[0][-2:]) for p in data
                     if p[0].startswith(estado["categoria"] + estado["marca"][0].upper() + empaque[0].upper())
@@ -139,43 +135,41 @@ def whatsapp_bot():
                     estado["precio"],
                     estado["stock_minimo"],
                     estado["ultima_compra"],
-                    ""  # última compra (puede llenarse luego)
+                    ""
                 ]
                 hoja.append_row(nuevo_producto)
                 msg.body(f"✅ Producto '{estado['nombre']}' agregado con código {codigo}.\n"
-                        "¿Deseas registrar otro producto? (sí / no)")
+                         "¿Deseas registrar otro producto? (sí / no)")
                 estado.clear()
                 estado["step"] = "confirmar_continuar"
-                return str(resp)
-        
-        # Paso final: Confirmar si desea registrar otro
+
         elif estado["step"] == "confirmar_continuar":
             if incoming_msg.lower() in ["sí", "si"]:
                 estado["step"] = "esperando_datos"
                 msg.body("Por favor envía los datos del nuevo producto en este formato:\n"
-                         "Nombre, Marca, Fecha (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo")
+                         "Nombre, Marca, Fecha, Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra")
             elif incoming_msg.lower() == "no":
                 user_states.pop(phone_number)
                 msg.body("📋 Has salido del registro de productos. Escribe 'menu' para ver las opciones.")
             else:
                 msg.body("❓ Respuesta no válida. Escribe 'sí' para registrar otro producto o 'no' para salir.")
 
-        elif estado.get("step") == "esperando_codigo":
+        elif estado["step"] == "esperando_codigo":
             filtro_codigo = incoming_msg.upper().strip()
-            hoja_cliente = get_inventory_sheet_for_number(phone_number)
-        
-            if not hoja_cliente:
+            hoja = get_inventory_sheet_for_number(phone_number)
+
+            if not hoja:
                 msg.body("❌ No se encontró tu hoja de productos.")
                 user_states.pop(phone_number)
             else:
-                productos = obtener_productos(hoja_cliente)
+                productos = obtener_productos(hoja)
                 coincidencias = [p for p in productos if p["codigo"].upper().startswith(filtro_codigo)]
 
                 if not coincidencias:
                     msg.body("❌ No se encontraron productos con ese código. ¿Deseas intentar con otro código? (sí / no)")
                 elif len(coincidencias) == 1:
                     p = coincidencias[0]
-                    respuesta = (
+                    msg.body(
                         f"🔎 Detalles del producto con código {p['codigo']}:\n"
                         f"📌 Nombre: {p['nombre']}\n"
                         f"🏷️ Marca: {p['marca']}\n"
@@ -187,25 +181,23 @@ def whatsapp_bot():
                         f"🛒 Última compra: {p['ultima_compra']}\n\n"
                         "¿Deseas consultar otro código? (sí / no)"
                     )
-                    msg.body(respuesta)
                 else:
                     respuesta = f"🔍 Se encontraron {len(coincidencias)} productos:\n"
                     for i, p in enumerate(coincidencias, start=1):
                         respuesta += f"{i}. {p['nombre']} - {p['marca']}, Stock: {p['cantidad']} (Código: {p['codigo']})\n"
                     respuesta += "\n¿Deseas consultar otro código? (sí / no)"
                     msg.body(respuesta)
-                
+
                 user_states[phone_number] = {"step": "preguntar_otro_codigo"}
 
-        elif estado.get("step") == "preguntar_otro_codigo":
-            if incoming_msg.lower() in ["sí", "si", "s"]:
+        elif estado["step"] == "preguntar_otro_codigo":
+            if incoming_msg.lower() in ["sí", "si"]:
                 user_states[phone_number] = {"step": "esperando_codigo"}
                 msg.body("🔍 Escribe el siguiente código que deseas consultar:")
             else:
                 user_states.pop(phone_number)
                 msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
-    
-    # Opción 4: Actualizar producto
+
     else:
         msg.body("Envía 'menu' para ver las opciones disponibles.")
 
