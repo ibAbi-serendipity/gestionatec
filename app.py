@@ -57,7 +57,9 @@ def whatsapp_bot():
 
     # Opción 2: Filtrar por código
     elif incoming_msg == "2":
-        pass
+        user_states[phone_number] = {"step": "esperando_codigo"}
+        msg.body("🔍 Escribe el código del producto que deseas consultar:")
+
 
     # Opción 3: Agregar producto
     elif incoming_msg == "3":
@@ -158,6 +160,40 @@ def whatsapp_bot():
             else:
                 msg.body("❓ Respuesta no válida. Escribe 'sí' para registrar otro producto o 'no' para salir.")
 
+        elif estado.get("step") == "esperando_codigo":
+            filtro_codigo = incoming_msg.upper().strip()
+            hoja_cliente = get_inventory_sheet_for_number(phone_number)
+        
+            if not hoja_cliente:
+                msg.body("❌ No se encontró tu hoja de productos.")
+            else:
+                productos = obtener_productos(hoja_cliente)
+                coincidencias = [p for p in productos if p["codigo"].upper().startswith(filtro_codigo)]
+
+                if not coincidencias:
+                    msg.body("❌ No se encontraron productos con ese código. Intenta con otra búsqueda o escribe 'menu' para volver.")
+                elif len(coincidencias) == 1:
+                    p = coincidencias[0]
+                    respuesta = (
+                        f"🔎 Detalles del producto con código {p['codigo']}:\n"
+                        f"📌 Nombre: {p['nombre']}\n"
+                        f"🏷️ Marca: {p['marca']}\n"
+                        f"📅 Fecha de caducidad: {p['fecha']}\n"
+                        f"💰 Costo: S/ {p['costo']}\n"
+                        f"📦 Cantidad: {p['cantidad']}\n"
+                        f"💵 Precio: S/ {p['precio']}\n"
+                        f"📉 Stock mínimo: {p['stock_minimo']}\n"
+                        f"🛒 Última compra: {p['ultima_compra']}"
+                    )
+                    msg.body(respuesta)
+                else:
+                    respuesta = f"🔍 Se encontraron {len(coincidencias)} productos que coinciden:\n"
+                    for i, p in enumerate(coincidencias, start=1):
+                        respuesta += f"{i}. {p['nombre']} - {p['marca']}, Stock: {p['cantidad']} (Código: {p['codigo']})\n"
+                msg.body(respuesta)
+
+            user_states.pop(phone_number)
+    # Opción 4: Actualizar producto
     else:
         msg.body("Envía 'menu' para ver las opciones disponibles.")
 
