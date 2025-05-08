@@ -166,12 +166,13 @@ def whatsapp_bot():
         
             if not hoja_cliente:
                 msg.body("❌ No se encontró tu hoja de productos.")
+                user_states.pop(phone_number)
             else:
                 productos = obtener_productos(hoja_cliente)
                 coincidencias = [p for p in productos if p["codigo"].upper().startswith(filtro_codigo)]
 
                 if not coincidencias:
-                    msg.body("❌ No se encontraron productos con ese código. Intenta con otra búsqueda o escribe 'menu' para volver.")
+                    msg.body("❌ No se encontraron productos con ese código. ¿Deseas intentar con otro código? (sí / no)")
                 elif len(coincidencias) == 1:
                     p = coincidencias[0]
                     respuesta = (
@@ -183,16 +184,27 @@ def whatsapp_bot():
                         f"📦 Cantidad: {p['cantidad']}\n"
                         f"💵 Precio: S/ {p['precio']}\n"
                         f"📉 Stock mínimo: {p['stock_minimo']}\n"
-                        f"🛒 Última compra: {p['ultima_compra']}"
+                        f"🛒 Última compra: {p['ultima_compra']}\n\n"
+                        "¿Deseas consultar otro código? (sí / no)"
                     )
                     msg.body(respuesta)
                 else:
-                    respuesta = f"🔍 Se encontraron {len(coincidencias)} productos que coinciden:\n"
+                    respuesta = f"🔍 Se encontraron {len(coincidencias)} productos:\n"
                     for i, p in enumerate(coincidencias, start=1):
                         respuesta += f"{i}. {p['nombre']} - {p['marca']}, Stock: {p['cantidad']} (Código: {p['codigo']})\n"
-                msg.body(respuesta)
+                    respuesta += "\n¿Deseas consultar otro código? (sí / no)"
+                    msg.body(respuesta)
+                
+                user_states[phone_number] = {"step": "preguntar_otro_codigo"}
 
-            user_states.pop(phone_number)
+        elif estado.get("step") == "preguntar_otro_codigo":
+            if incoming_msg.lower() in ["sí", "si", "s"]:
+                user_states[phone_number] = {"step": "esperando_codigo"}
+                msg.body("🔍 Escribe el siguiente código que deseas consultar:")
+            else:
+                user_states.pop(phone_number)
+                msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
+    
     # Opción 4: Actualizar producto
     else:
         msg.body("Envía 'menu' para ver las opciones disponibles.")
