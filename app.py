@@ -71,7 +71,7 @@ def whatsapp_bot():
         estado = user_states[phone_number]
 
         # Paso 1: Esperar datos
-        if estado["step"] == "esperando_datos":
+        if estado.get["step"] == "esperando_datos":
             partes = [x.strip() for x in incoming_msg.split(",")]
             if len(partes) != 8:
                 msg.body("❌ Formato incorrecto. Asegúrate de enviar: Nombre, Marca, Fecha, Costo, Cantidad, Precio, Stock Mínimo")
@@ -90,7 +90,7 @@ def whatsapp_bot():
                 msg.body("📦 ¿Cuál es la categoría del producto? (perecible / no perecible / limpieza / herramienta o material)")
 
         # Paso 2: Esperar categoría
-        elif estado["step"] == "esperando_categoria":
+        elif estado.get["step"] == "esperando_categoria":
             categorias = {
                 "perecible": "1",
                 "no perecible": "2",
@@ -106,7 +106,7 @@ def whatsapp_bot():
                 msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre)")
 
         # Paso 3: Esperar empaque y guardar
-        elif estado["step"] == "esperando_empaque":
+        elif estado.get["step"] == "esperando_empaque":
             empaque = incoming_msg.strip().lower()
             if not empaque:
                 msg.body("❌ Tipo de empaque no válido.")
@@ -137,7 +137,7 @@ def whatsapp_bot():
 
                 nuevo_num = str(max(correlativos, default=0) + 1).zfill(2)
                 codigo = f"{prefijo_codigo}{nuevo_num}"
-                
+
                 nuevo_producto = [
                     codigo,
                     estado["nombre"],
@@ -158,7 +158,7 @@ def whatsapp_bot():
                 return str(resp)
         
         # Paso final: Confirmar si desea registrar otro
-        elif estado["step"] == "confirmar_continuar":
+        elif estado.get["step"] == "confirmar_continuar":
             if incoming_msg.lower() in ["sí", "si"]:
                 estado["step"] = "esperando_datos"
                 msg.body("Por favor envía los datos del nuevo producto en este formato:\n"
