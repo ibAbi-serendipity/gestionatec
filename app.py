@@ -127,7 +127,7 @@ def whatsapp_bot():
             if incoming_msg.lower() in ["sí", "si"]:
                 estado["step"] = "esperando_datos"
                 msg.body("Por favor envía los datos del nuevo producto en este formato:\n"
-                         "Nombre, Marca, Fecha (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo")
+                         "'Nombre, Marca, Fecha (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo'")
             elif incoming_msg.lower() == "no":
                 user_states.pop(phone_number)
                 msg.body("📋 Has salido del registro de productos. Escribe 'menu' para ver las opciones.")
@@ -179,6 +179,7 @@ def whatsapp_bot():
                     user_states.pop(phone_number)
                     msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
             
+            # Paso 4: Actualizar producto
             elif estado.get("step") == "esperando_codigo_actualizar":
                 codigo = incoming_msg.strip().upper()
                 hoja = get_inventory_sheet_for_number(phone_number)
@@ -190,26 +191,26 @@ def whatsapp_bot():
                         encontrado = (i, row)
                         break
 
+                if encontrado:
+                    fila, producto = encontrado
+                    user_states[phone_number] = {
+                        "step": "esperando_campo_a_modificar",
+                        "fila": fila,
+                        "producto": producto,
+                        "codigo": codigo
+                    }
+                    msg.body(
+                        f"🔍 Producto encontrado: {producto[1]} - {producto[2]}\n"
+                        "¿Qué campo deseas modificar? (fecha / costo / precio / stock mínimo)"
+                    )
+                
                 if not encontrado:
                     msg.body("❌ Producto no encontrado. ¿Deseas ingresar otro código? (sí / no)")
                     user_states[phone_number] = {"step": "confirmar_codigo_nuevamente_4"}
                     return str(resp)
-
-                fila, producto = encontrado
-                user_states[phone_number] = {
-                    "step": "esperando_campo_a_modificar",
-                    "fila": fila,
-                    "producto": producto,
-                    "codigo": codigo
-                }
-                msg.body(
-                    f"🔍 Producto encontrado: {producto[1]} - {producto[2]}\n"
-                    "¿Qué campo deseas modificar? (fecha / costo / precio / stock mínimo)"
-                )
-                return str(resp)
-
+            
             elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_codigo_nuevamente_4":
-                if incoming_msg.lower() == "sí":
+                if incoming_msg.lower() == "si":
                     user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
                     msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
                 else:
@@ -226,16 +227,15 @@ def whatsapp_bot():
                     "stock mínimo": 7
                 }
 
-                if campo not in campos_validos:
-                    msg.body("❌ Campo no válido. Elige entre: fecha / costo / precio / stock mínimo")
-                    return str(resp)
-
                 user_states[phone_number]["campo"] = campo
                 user_states[phone_number]["columna"] = campos_validos[campo]
                 user_states[phone_number]["step"] = "esperando_nuevo_valor"
                 msg.body(f"✏️ Ingresa el nuevo valor para '{campo}':")
                 return str(resp)
-
+                if campo not in campos_validos:
+                    msg.body("❌ Campo no válido. Elige entre: fecha / costo / precio / stock mínimo")
+                    return str(resp)
+        
             elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_nuevo_valor":
                 nuevo_valor = incoming_msg.strip()
                 hoja = get_inventory_sheet_for_number(phone_number)
@@ -254,7 +254,7 @@ def whatsapp_bot():
                 return str(resp)
 
             elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_otro_campo":
-                if incoming_msg.lower() == "sí":
+                if incoming_msg.lower() == "si":
                     user_states[phone_number]["step"] = "esperando_campo_a_modificar"
                     msg.body("🔁 ¿Qué otro campo deseas modificar? (fecha / costo / precio / stock mínimo)")
                 else:
