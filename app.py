@@ -3,7 +3,6 @@ from twilio.twiml.messaging_response import MessagingResponse
 from google_sheets import obtener_productos, get_inventory_sheet_for_number  # Importamos la función para obtener los productos
 
 app = Flask(__name__)
-
 user_states = {}  # Aquí definimos el diccionario para guardar el estado de los usuarios
 
 @app.route("/webhook", methods=["POST"])
@@ -12,7 +11,6 @@ def whatsapp_bot():
     phone_number = request.values.get("From", "").replace("whatsapp:", "").replace("+", "")
     
     print(f"📱 Mensaje recibido de {phone_number}: {incoming_msg}")
-    
     resp = MessagingResponse()
     msg = resp.message()
     
@@ -54,12 +52,12 @@ def whatsapp_bot():
                         f"   🗓️ Vence: {p['fecha']} | 📦 Stock: {p['cantidad']} | 💰 S/ {p['precio']}\n"
                     )
                 msg.body(respuesta)
-
+            return str(resp)
     # Opción 2: Filtrar por código
     elif incoming_msg == "2":
         user_states[phone_number] = {"step": "esperando_codigo"}
         msg.body("🔍 Escribe el código del producto que deseas consultar:")
-
+        return str(resp)
 
     # Opción 3: Agregar producto
     elif incoming_msg == "3":
@@ -88,7 +86,7 @@ def whatsapp_bot():
                     "step": "esperando_categoria"
                 })
                 msg.body("📦 ¿Cuál es la categoría del producto? (perecible / no perecible / limpieza / herramienta o material)")
-
+            
         # Paso 2: Esperar categoría
         elif estado.get("step") == "esperando_categoria":
             categorias = {
@@ -213,7 +211,7 @@ def whatsapp_bot():
             else:
                 user_states.pop(phone_number)
                 msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
-    
+    return str(resp)
     # Opción 4: Actualizar producto
     """elif incoming_msg == "4":
         user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
