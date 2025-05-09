@@ -178,8 +178,90 @@ def whatsapp_bot():
             else:
                 user_states.pop(phone_number)
                 msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
-        return str(resp)
+        
+        elif estado.get("step") == "esperando_codigo_actualizar":
+            codigo = incoming_msg.strip().upper()
+            hoja = get_inventory_sheet_for_number(phone_number)
+            productos = hoja.get_all_values()
 
+            encontrado = None
+            for i, row in enumerate(productos[1:], start=2):  # saltamos encabezado
+                if row[0] == codigo:
+                    encontrado = (i, row)
+                    break
+
+            if not encontrado:
+                msg.body("❌ Producto no encontrado. ¿Deseas ingresar otro código? (sí / no)")
+                user_states[phone_number] = {"step": "confirmar_codigo_nuevamente_4"}
+                return str(resp)
+
+            fila, producto = encontrado
+            user_states[phone_number] = {
+                "step": "esperando_campo_a_modificar",
+                "fila": fila,
+                "producto": producto,
+                "codigo": codigo
+            }
+            msg.body(
+                f"🔍 Producto encontrado: {producto[1]} - {producto[2]}\n"
+                "¿Qué campo deseas modificar? (fecha / costo / precio / stock mínimo)"
+            )
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_codigo_nuevamente_4":
+            if incoming_msg.lower() == "sí":
+                user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
+                msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Volviendo al menú principal. Envía 'menu' para ver opciones.")
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_campo_a_modificar":
+            campo = incoming_msg.strip().lower()
+            campos_validos = {
+                "fecha": 3,
+                "costo": 4,
+                "precio": 6,
+                "stock mínimo": 7
+            }
+
+            if campo not in campos_validos:
+                msg.body("❌ Campo no válido. Elige entre: fecha / costo / precio / stock mínimo")
+                return str(resp)
+
+            user_states[phone_number]["campo"] = campo
+            user_states[phone_number]["columna"] = campos_validos[campo]
+            user_states[phone_number]["step"] = "esperando_nuevo_valor"
+            msg.body(f"✏️ Ingresa el nuevo valor para '{campo}':")
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_nuevo_valor":
+            nuevo_valor = incoming_msg.strip()
+            hoja = get_inventory_sheet_for_number(phone_number)
+            fila = user_states[phone_number]["fila"]
+            columna = user_states[phone_number]["columna"]
+            campo = user_states[phone_number]["campo"]
+
+            try:
+                hoja.update_cell(fila, columna + 1, nuevo_valor)
+                msg.body(f"✅ El campo '{campo}' fue actualizado correctamente.\n"
+                        "¿Deseas actualizar otro campo de este producto? (sí / no)")
+                user_states[phone_number]["step"] = "confirmar_otro_campo"
+            except Exception as e:
+                msg.body("❌ Error al actualizar el valor. Intenta nuevamente.")
+                logging.error(f"Error al actualizar celda: {e}")
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_otro_campo":
+            if incoming_msg.lower() == "sí":
+                user_states[phone_number]["step"] = "esperando_campo_a_modificar"
+                msg.body("🔁 ¿Qué otro campo deseas modificar? (fecha / costo / precio / stock mínimo)")
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Actualización finalizada. Envía 'menu' para ver opciones.")
+            return str(resp)
+        return str(resp)
     # Opción 1: Ver productos
     elif incoming_msg == "1":
         hoja_cliente = get_inventory_sheet_for_number(phone_number)
@@ -211,95 +293,11 @@ def whatsapp_bot():
         user_states[phone_number] = {"step": "esperando_datos"}
         msg.body("Por favor envía los datos del producto en este formato:\n"
                  "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra (AAAA-MM-DD)\n")
-
-    
+        return str(resp)
     # Opción 4: Actualizar producto
     elif incoming_msg == "4":
         user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
         msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_codigo_actualizar":
-        hoja = get_inventory_sheet_for_number(phone_number)
-        productos = hoja.get_all_values()
-        codigo = incoming_msg.strip().upper()
-
-        encontrado = None
-        for i, row in enumerate(productos[1:], start=2):  # saltamos encabezado
-            if row[0] == codigo:
-                encontrado = (i, row)
-                break
-
-        if not encontrado:
-            msg.body("❌ Producto no encontrado. ¿Deseas ingresar otro código? (sí / no)")
-            user_states[phone_number] = {"step": "confirmar_codigo_nuevamente_4"}
-            return str(resp)
-
-        fila, producto = encontrado
-        user_states[phone_number] = {
-            "step": "esperando_campo_a_modificar",
-            "fila": fila,
-            "producto": producto,
-            "codigo": codigo
-        }
-        msg.body(
-            f"🔍 Producto encontrado: {producto[1]} - {producto[2]}\n"
-            "¿Qué campo deseas modificar? (fecha / costo / precio / stock mínimo)"
-        )
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_codigo_nuevamente_4":
-        if incoming_msg.lower() == "sí":
-            user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
-            msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
-        else:
-            user_states.pop(phone_number, None)
-            msg.body("✅ Volviendo al menú principal. Envía 'menu' para ver opciones.")
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_campo_a_modificar":
-        campo = incoming_msg.strip().lower()
-        campos_validos = {
-            "fecha": 3,
-            "costo": 4,
-            "precio": 6,
-            "stock mínimo": 7
-        }
-
-        if campo not in campos_validos:
-            msg.body("❌ Campo no válido. Elige entre: fecha / costo / precio / stock mínimo")
-            return str(resp)
-
-        user_states[phone_number]["campo"] = campo
-        user_states[phone_number]["columna"] = campos_validos[campo]
-        user_states[phone_number]["step"] = "esperando_nuevo_valor"
-        msg.body(f"✏️ Ingresa el nuevo valor para '{campo}':")
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_nuevo_valor":
-        nuevo_valor = incoming_msg.strip()
-        hoja = get_inventory_sheet_for_number(phone_number)
-        fila = user_states[phone_number]["fila"]
-        columna = user_states[phone_number]["columna"]
-        campo = user_states[phone_number]["campo"]
-
-        try:
-            hoja.update_cell(fila, columna + 1, nuevo_valor)
-            msg.body(f"✅ El campo '{campo}' fue actualizado correctamente.\n"
-                    "¿Deseas actualizar otro campo de este producto? (sí / no)")
-            user_states[phone_number]["step"] = "confirmar_otro_campo"
-        except Exception as e:
-            msg.body("❌ Error al actualizar el valor. Intenta nuevamente.")
-            logging.error(f"Error al actualizar celda: {e}")
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_otro_campo":
-        if incoming_msg.lower() == "sí":
-            user_states[phone_number]["step"] = "esperando_campo_a_modificar"
-            msg.body("🔁 ¿Qué otro campo deseas modificar? (fecha / costo / precio / stock mínimo)")
-        else:
-            user_states.pop(phone_number, None)
-            msg.body("✅ Actualización finalizada. Envía 'menu' para ver opciones.")
         return str(resp)
 
     # Opción 5: Eliminar producto
