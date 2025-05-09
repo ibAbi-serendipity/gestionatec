@@ -32,39 +32,6 @@ def whatsapp_bot():
         )
         msg.body(menu)
         return str(resp)
-
-    # Opción 1: Ver productos
-    elif incoming_msg == "1":
-        hoja_cliente = get_inventory_sheet_for_number(phone_number)
-        if not hoja_cliente:
-            msg.body("❌ No se encontró la hoja de productos para tu número.")
-        else:
-            productos = obtener_productos(hoja_cliente)
-            if productos is None:
-                msg.body("⚠️ Hubo un error al leer los productos. Intenta nuevamente.")
-            elif not productos:
-                msg.body("📭 No hay productos registrados.")
-            else:
-                respuesta = "📦 *Productos en inventario:*\n"
-                for i, p in enumerate(productos, start=1):
-                    respuesta += (
-                        f"{i}. *{p['nombre']}* ({p['marca']}) - {p['codigo']}\n"
-                        f"   🗓️ Vence: {p['fecha']} | 📦 Stock: {p['cantidad']} | 💰 S/ {p['precio']}\n"
-                    )
-                msg.body(respuesta)
-            return str(resp)
-    # Opción 2: Filtrar por código
-    elif incoming_msg == "2":
-        user_states[phone_number] = {"step": "esperando_codigo"}
-        msg.body("🔍 Escribe el código del producto que deseas consultar:")
-        return str(resp)
-
-    # Opción 3: Agregar producto
-    elif incoming_msg == "3":
-        user_states[phone_number] = {"step": "esperando_datos"}
-        msg.body("Por favor envía los datos del producto en este formato:\n"
-                 "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra (AAAA-MM-DD)\n")
-
     elif phone_number in user_states:
         estado = user_states[phone_number]
 
@@ -211,7 +178,41 @@ def whatsapp_bot():
             else:
                 user_states.pop(phone_number)
                 msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
-    return str(resp)
+        return str(resp)
+
+    # Opción 1: Ver productos
+    elif incoming_msg == "1":
+        hoja_cliente = get_inventory_sheet_for_number(phone_number)
+        if not hoja_cliente:
+            msg.body("❌ No se encontró la hoja de productos para tu número.")
+        else:
+            productos = obtener_productos(hoja_cliente)
+            if productos is None:
+                msg.body("⚠️ Hubo un error al leer los productos. Intenta nuevamente.")
+            elif not productos:
+                msg.body("📭 No hay productos registrados.")
+            else:
+                respuesta = "📦 *Productos en inventario:*\n"
+                for i, p in enumerate(productos, start=1):
+                    respuesta += (
+                        f"{i}. *{p['nombre']}* ({p['marca']}) - {p['codigo']}\n"
+                        f"   🗓️ Vence: {p['fecha']} | 📦 Stock: {p['cantidad']} | 💰 S/ {p['precio']}\n"
+                    )
+                msg.body(respuesta)
+            return str(resp)
+    # Opción 2: Filtrar por código
+    elif incoming_msg == "2":
+        user_states[phone_number] = {"step": "esperando_codigo"}
+        msg.body("🔍 Escribe el código del producto que deseas consultar:")
+        return str(resp)
+
+    # Opción 3: Agregar producto
+    elif incoming_msg == "3":
+        user_states[phone_number] = {"step": "esperando_datos"}
+        msg.body("Por favor envía los datos del producto en este formato:\n"
+                 "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra (AAAA-MM-DD)\n")
+
+    
     # Opción 4: Actualizar producto
     """elif incoming_msg == "4":
         user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
