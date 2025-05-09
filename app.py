@@ -214,7 +214,7 @@ def whatsapp_bot():
 
     
     # Opción 4: Actualizar producto
-    """elif incoming_msg == "4":
+    elif incoming_msg == "4":
         user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
         msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
         return str(resp)
@@ -303,7 +303,7 @@ def whatsapp_bot():
         return str(resp)
 
     # Opción 5: Eliminar producto
-    elif incoming_msg == "5":
+    """elif incoming_msg == "5":
         user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
         msg.body("🗑️ Ingresa el código del producto que deseas eliminar:")
         return str(resp)
