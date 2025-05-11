@@ -178,7 +178,6 @@ def whatsapp_bot():
                 else:
                     user_states.pop(phone_number)
                     msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
-            
         # Paso 4: Actualizar producto
         elif estado.get("step") == "esperando_codigo_actualizar":
             codigo = incoming_msg.strip().upper()
