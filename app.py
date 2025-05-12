@@ -314,7 +314,7 @@ def whatsapp_bot():
                 msg.body("✅ Eliminación cancelada. Envía 'menu' para ver opciones.")
                 user_states.pop(phone_number, None)
             return str(resp)
-
+        # Paso 6: Registrar entrada
         elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_codigo":
             hoja = get_inventory_sheet_for_number(phone_number)
             productos = hoja.get_all_values()
@@ -328,7 +328,10 @@ def whatsapp_bot():
                         "producto": row,
                         "codigo": codigo
                     }
-                    msg.body("📅 Ingresa la nueva fecha de última compra (AAAA-MM-DD):")
+                    msg.body(
+                        f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
+                        "📅 Ingresa la nueva fecha de última compra (AAAA-MM-DD):"
+                    )
                     return str(resp)
 
             msg.body("❌ Código no encontrado. ¿Deseas ingresar otro código? (sí / no)")
@@ -344,10 +347,19 @@ def whatsapp_bot():
                 msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
             return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_fecha":
-            user_states[phone_number]["nueva_fecha"] = incoming_msg.strip()
-            user_states[phone_number]["step"] = "entrada_cantidad"
-            msg.body("🔢 Ingresa la cantidad que deseas registrar:")
+        elif estado.get("step") == "entrada_fecha":
+            nueva_fecha = incoming_msg.strip()
+            if len(nueva_fecha) != 10 or nueva_fecha[4] != "-" or nueva_fecha[7] != "-":
+                msg.body("❌ Formato de fecha inválido. ")
+                return str(resp)
+            fecha_actual = estado["producto"][8]  # Columna 'última compra'
+            if nueva_fecha == fecha_actual:
+                msg.body(f"⚠️ La fecha ingresada es igual a la ya registrada ({fecha_actual}). Ingresa una fecha distinta:")
+                return str(resp)
+            estado["nueva_fecha"] = nueva_fecha
+            estado["step"] = "entrada_cantidad"
+            msg.body(f"📅 Fecha de última compra actualizada a {nueva_fecha}.\n"
+                    "🔢 Ahora ingresa la cantidad que deseas registrar:")
             return str(resp)
 
         elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_cantidad":
