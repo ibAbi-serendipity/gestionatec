@@ -171,13 +171,13 @@ def whatsapp_bot():
                 
                 user_states[phone_number] = {"step": "preguntar_otro_codigo"}
 
-            elif estado.get("step") == "preguntar_otro_codigo":
-                if incoming_msg.lower() in ["sí", "si", "s"]:
-                    user_states[phone_number] = {"step": "esperando_codigo"}
-                    msg.body("🔍 Escribe el siguiente código que deseas consultar:")
-                else:
-                    user_states.pop(phone_number)
-                    msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
+        elif estado.get("step") == "preguntar_otro_codigo":
+            if incoming_msg.lower() in ["sí", "si", "s"]:
+                user_states[phone_number] = {"step": "esperando_codigo"}
+                msg.body("🔍 Escribe el siguiente código que deseas consultar:")
+            else:
+                user_states.pop(phone_number)
+                msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
         # Paso 4: Actualizar producto
         elif estado.get("step") == "esperando_codigo_actualizar":
             codigo = incoming_msg.strip().upper()
@@ -300,7 +300,7 @@ def whatsapp_bot():
         return str(resp)
     
     return str(resp)
-    
+
     # Opción 5: Eliminar producto
     """elif incoming_msg == "5":
         user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
