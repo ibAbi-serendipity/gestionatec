@@ -314,6 +314,62 @@ def whatsapp_bot():
                 msg.body("✅ Eliminación cancelada. Envía 'menu' para ver opciones.")
                 user_states.pop(phone_number, None)
             return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_codigo":
+            hoja = get_inventory_sheet_for_number(phone_number)
+            productos = hoja.get_all_values()
+            codigo = incoming_msg.strip().upper()
+
+            for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
+                if row[0] == codigo:
+                    user_states[phone_number] = {
+                        "step": "entrada_fecha",
+                        "fila": i,
+                        "producto": row,
+                        "codigo": codigo
+                    }
+                    msg.body("📅 Ingresa la nueva fecha de última compra (AAAA-MM-DD):")
+                    return str(resp)
+
+            msg.body("❌ Código no encontrado. ¿Deseas ingresar otro código? (sí / no)")
+            user_states[phone_number] = {"step": "entrada_codigo_reintentar"}
+            return str(resp)
+
+        elif estado.get("step") == "entrada_codigo_reintentar":
+            if incoming_msg.lower() in ["si", "sí"]:
+                user_states[phone_number] = {"step": "entrada_codigo"}
+                msg.body("📥 Ingresa el código del producto:")
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_fecha":
+            user_states[phone_number]["nueva_fecha"] = incoming_msg.strip()
+            user_states[phone_number]["step"] = "entrada_cantidad"
+            msg.body("🔢 Ingresa la cantidad que deseas registrar:")
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_cantidad":
+            cantidad_extra = incoming_msg.strip()
+            if not cantidad_extra.isdigit():
+                msg.body("❌ Por favor ingresa un número válido.")
+                return str(resp)
+
+            estado = user_states[phone_number]
+            hoja = get_inventory_sheet_for_number(phone_number)
+            fila = estado["fila"]
+            producto = estado["producto"]
+            fecha = estado["nueva_fecha"]
+            cantidad_actual = int(producto[5])
+            nueva_cantidad = cantidad_actual + int(cantidad_extra)
+
+            hoja.update_cell(fila, 6, str(nueva_cantidad))  # Columna de cantidad (6)
+            hoja.update_cell(fila, 9, fecha)  # Columna de última compra (9)
+
+            msg.body(f"✅ Se registró la entrada. Nuevo stock: {nueva_cantidad}")
+            user_states.pop(phone_number, None)
+            return str(resp)
         return str(resp)
     # Opción 1: Ver productos
     elif incoming_msg == "1":
@@ -357,72 +413,15 @@ def whatsapp_bot():
         user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
         msg.body("🗑️ Ingresa el código del producto que deseas eliminar:")
         return str(resp)
-    return str(resp)
-   
     # Opción 6: Registrar entrada
-    """elif incoming_msg == "6":
+    elif incoming_msg == "6":
         user_states[phone_number] = {"step": "entrada_codigo"}
         msg.body("📥 Ingresa el código del producto al que deseas registrar entrada:")
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_codigo":
-        hoja = get_inventory_sheet_for_number(phone_number)
-        productos = hoja.get_all_values()
-        codigo = incoming_msg.strip().upper()
-
-        for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
-            if row[0] == codigo:
-                user_states[phone_number] = {
-                    "step": "entrada_fecha",
-                    "fila": i,
-                    "producto": row,
-                    "codigo": codigo
-                }
-                msg.body("📅 Ingresa la nueva fecha de última compra (AAAA-MM-DD):")
-                return str(resp)
-
-        msg.body("❌ Código no encontrado. ¿Deseas ingresar otro código? (sí / no)")
-        user_states[phone_number] = {"step": "entrada_codigo_reintentar"}
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_codigo_reintentar":
-        if incoming_msg.lower() == "sí":
-            user_states[phone_number] = {"step": "entrada_codigo"}
-            msg.body("📥 Ingresa el código del producto:")
-        else:
-            user_states.pop(phone_number, None)
-            msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_fecha":
-        user_states[phone_number]["nueva_fecha"] = incoming_msg.strip()
-        user_states[phone_number]["step"] = "entrada_cantidad"
-        msg.body("🔢 Ingresa la cantidad que deseas registrar:")
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_cantidad":
-        cantidad_extra = incoming_msg.strip()
-        if not cantidad_extra.isdigit():
-            msg.body("❌ Por favor ingresa un número válido.")
-            return str(resp)
-
-        estado = user_states[phone_number]
-        hoja = get_inventory_sheet_for_number(phone_number)
-        fila = estado["fila"]
-        producto = estado["producto"]
-        fecha = estado["nueva_fecha"]
-        cantidad_actual = int(producto[5])
-        nueva_cantidad = cantidad_actual + int(cantidad_extra)
-
-        hoja.update_cell(fila, 6, str(nueva_cantidad))  # Columna de cantidad (6)
-        hoja.update_cell(fila, 9, fecha)  # Columna de última compra (9)
-
-        msg.body(f"✅ Se registró la entrada. Nuevo stock: {nueva_cantidad}")
-        user_states.pop(phone_number, None)
-        return str(resp)
+        return str(resp)    
+    return str(resp)
 
     # Opción 7: Registrar salida
-    elif incoming_msg == "7":
+    """elif incoming_msg == "7":
         user_states[phone_number] = {"step": "salida_codigo"}
         msg.body("📤 Ingresa el código del producto del que deseas registrar una salida:")
         return str(resp)
@@ -480,6 +479,5 @@ def whatsapp_bot():
         user_states.pop(phone_number, None)
         return str(resp)
     """
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
