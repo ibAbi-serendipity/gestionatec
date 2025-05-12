@@ -260,6 +260,60 @@ def whatsapp_bot():
                 user_states.pop(phone_number, None)
                 msg.body("✅ Actualización finalizada. Envía 'menu' para ver opciones.")
             return str(resp)
+        # Paso 5: Eliminar producto
+        elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_codigo_eliminar":
+            hoja = get_inventory_sheet_for_number(phone_number)
+            productos = hoja.get_all_values()
+            codigo = incoming_msg.strip().upper()
+
+            encontrado = None
+            for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
+                if row[0] == codigo:
+                    encontrado = (i, row)
+                    break
+
+            if not encontrado:
+                msg.body("❌ Producto no encontrado. ¿Deseas ingresar otro código? (sí / no)")
+                user_states[phone_number] = {"step": "confirmar_codigo_nuevamente_5"}
+                return str(resp)
+
+            fila, producto = encontrado
+            user_states[phone_number] = {
+                "step": "confirmar_eliminacion",
+                "fila": fila,
+                "producto": producto,
+                "codigo": codigo
+            }
+            msg.body(
+                f"⚠️ Producto encontrado: {producto[1]} - {producto[2]}\n"
+                f"¿Estás seguro de que deseas eliminarlo? (sí / no)"
+            )
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_codigo_nuevamente_5":
+            if incoming_msg.lower() == "sí":
+                user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
+                msg.body("🗑️ Ingresa el código del producto que deseas eliminar:")
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_eliminacion":
+            if incoming_msg.lower() == "sí":
+                hoja = get_inventory_sheet_for_number(phone_number)
+                fila = user_states[phone_number]["fila"]
+                try:
+                    hoja.delete_rows(fila)
+                    msg.body("✅ Producto eliminado correctamente.")
+                except Exception as e:
+                    msg.body("❌ Ocurrió un error al eliminar el producto.")
+                    logging.error(f"Error al eliminar fila: {e}")
+                user_states.pop(phone_number, None)
+            else:
+                msg.body("✅ Eliminación cancelada. Envía 'menu' para ver opciones.")
+                user_states.pop(phone_number, None)
+            return str(resp)
         return str(resp)
     # Opción 1: Ver productos
     elif incoming_msg == "1":
@@ -298,71 +352,15 @@ def whatsapp_bot():
         user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
         msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
         return str(resp)
-    
-    return str(resp)
-
     # Opción 5: Eliminar producto
-    """elif incoming_msg == "5":
+    elif incoming_msg == "5":
         user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
         msg.body("🗑️ Ingresa el código del producto que deseas eliminar:")
         return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_codigo_eliminar":
-        hoja = get_inventory_sheet_for_number(phone_number)
-        productos = hoja.get_all_values()
-        codigo = incoming_msg.strip().upper()
-
-        encontrado = None
-        for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
-            if row[0] == codigo:
-                encontrado = (i, row)
-                break
-
-        if not encontrado:
-            msg.body("❌ Producto no encontrado. ¿Deseas ingresar otro código? (sí / no)")
-            user_states[phone_number] = {"step": "confirmar_codigo_nuevamente_5"}
-            return str(resp)
-
-        fila, producto = encontrado
-        user_states[phone_number] = {
-            "step": "confirmar_eliminacion",
-            "fila": fila,
-            "producto": producto,
-            "codigo": codigo
-        }
-        msg.body(
-            f"⚠️ Producto encontrado: {producto[1]} - {producto[2]}\n"
-            f"¿Estás seguro de que deseas eliminarlo? (sí / no)"
-        )
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_codigo_nuevamente_5":
-        if incoming_msg.lower() == "sí":
-            user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
-            msg.body("🗑️ Ingresa el código del producto que deseas eliminar:")
-        else:
-            user_states.pop(phone_number, None)
-            msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
-        return str(resp)
-
-    elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_eliminacion":
-        if incoming_msg.lower() == "sí":
-            hoja = get_inventory_sheet_for_number(phone_number)
-            fila = user_states[phone_number]["fila"]
-            try:
-                hoja.delete_rows(fila)
-                msg.body("✅ Producto eliminado correctamente.")
-            except Exception as e:
-                msg.body("❌ Ocurrió un error al eliminar el producto.")
-                logging.error(f"Error al eliminar fila: {e}")
-            user_states.pop(phone_number, None)
-        else:
-            msg.body("✅ Eliminación cancelada. Envía 'menu' para ver opciones.")
-            user_states.pop(phone_number, None)
-        return str(resp)
+    return str(resp)
    
     # Opción 6: Registrar entrada
-    elif incoming_msg == "6":
+    """elif incoming_msg == "6":
         user_states[phone_number] = {"step": "entrada_codigo"}
         msg.body("📥 Ingresa el código del producto al que deseas registrar entrada:")
         return str(resp)
