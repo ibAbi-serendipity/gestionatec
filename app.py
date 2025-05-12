@@ -315,7 +315,7 @@ def whatsapp_bot():
                 user_states.pop(phone_number, None)
             return str(resp)
         # Paso 6: Registrar entrada
-        elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_codigo":
+        elif estado.get("step") == "entrada_codigo":
             hoja = get_inventory_sheet_for_number(phone_number)
             productos = hoja.get_all_values()
             codigo = incoming_msg.strip().upper()
