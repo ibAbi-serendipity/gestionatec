@@ -322,12 +322,12 @@ def whatsapp_bot():
 
             for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
                 if row[0] == codigo:
-                    user_states[phone_number] = {
+                    estado.update({
                         "step": "entrada_fecha",
                         "fila": i,
                         "producto": row,
                         "codigo": codigo
-                    }
+                    })
                     msg.body(
                         f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
                         "📅 Ingresa la nueva fecha de última compra (AAAA-MM-DD):"
