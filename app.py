@@ -209,7 +209,7 @@ def whatsapp_bot():
                 return str(resp)
         
         elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_codigo_nuevamente_4":
-            if incoming_msg.lower() == "si":
+            if incoming_msg.lower() in ["si", "sí"]:
                 user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
                 msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
             else:
@@ -253,7 +253,7 @@ def whatsapp_bot():
             return str(resp)
 
         elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_otro_campo":
-            if incoming_msg.lower() == "si":
+            if incoming_msg.lower() in ["si", "sí"]:
                 user_states[phone_number]["step"] = "esperando_campo_a_modificar"
                 msg.body("🔁 ¿Qué otro campo deseas modificar? (fecha / costo / precio / stock mínimo)")
             else:
@@ -290,8 +290,8 @@ def whatsapp_bot():
             )
             return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_codigo_nuevamente_5":
-            if incoming_msg.lower() == "sí":
+        elif estado.get("step") == "confirmar_codigo_nuevamente_5":
+            if incoming_msg.lower() in ["si", "sí"]:
                 user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
                 msg.body("🗑️ Ingresa el código del producto que deseas eliminar:")
             else:
@@ -299,8 +299,8 @@ def whatsapp_bot():
                 msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
             return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_eliminacion":
-            if incoming_msg.lower() == "sí":
+        elif estado.get("step") == "confirmar_eliminacion":
+            if incoming_msg.lower() in ["si", "sí"]:
                 hoja = get_inventory_sheet_for_number(phone_number)
                 fila = user_states[phone_number]["fila"]
                 try:
