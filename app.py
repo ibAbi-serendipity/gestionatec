@@ -432,7 +432,7 @@ def whatsapp_bot():
             nuevo_stock = cantidad_actual - cantidad_retirar
             hoja.update_cell(fila, 6, str(nuevo_stock))  # Columna cantidad (6)
 
-            msg.body(f"✅ Salida registrada. Nuevo stock de {producto[1]} {marca}: {nuevo_stock}")
+            msg.body(f"✅ Salida registrada. Nuevo stock de {producto[1]} {producto[2]}: {nuevo_stock}")
             user_states.pop(phone_number, None)
             return str(resp)
         return str(resp)
