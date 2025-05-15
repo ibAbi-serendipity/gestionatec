@@ -2,6 +2,8 @@ import os
 import io
 import datetime
 import gspread
+import json
+import logging
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from oauth2client.service_account import ServiceAccountCredentials
