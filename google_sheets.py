@@ -89,11 +89,34 @@ def obtener_productos(hoja):
                     "cantidad": row[5],
                     "precio": row[6],
                     "stock_minimo": row[7],
-                    "ultima_compra": row[8]
+                    "lugar": row[8]
                 }
                 productos.append(producto)
         return productos
     except Exception as e:
         logging.error(f"❌ Error al leer los datos de la hoja del cliente: {e}")
         return None
-    
+
+def registrar_movimiento(hoja, tipo, producto, cantidad, stock_final):
+    """
+    Registra un movimiento de entrada o salida en la hoja 'Historial de movimientos'.
+    """
+    try:
+        spreadsheet = hoja.spreadsheet
+        try:
+            historial = spreadsheet.worksheet("Historial de movimientos")
+        except:
+            historial = spreadsheet.add_worksheet(title="Historial de movimientos", rows="1000", cols="6")
+            historial.append_row(["Fecha", "Código", "Nombre", "Tipo", "Cantidad", "Stock Final"])
+
+        fecha = datetime.now().strftime("%Y-%m-%d")
+        historial.append_row([
+            fecha,
+            producto[0],  # Código
+            producto[1],  # Nombre
+            tipo,
+            str(cantidad),
+            str(stock_final)
+        ])
+    except Exception as e:
+        logging.error(f"❌ Error al registrar movimiento: {e}")

@@ -1,6 +1,6 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from google_sheets import obtener_productos, get_inventory_sheet_for_number  # Importamos la función para obtener los productos
+from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento  # Importamos la función para obtener los productos
 
 app = Flask(__name__)
 user_states = {}  # Aquí definimos el diccionario para guardar el estado de los usuarios
@@ -17,7 +17,7 @@ def whatsapp_bot():
     if incoming_msg.lower() in ["hola", "menu", "inicio"]:
         user_states.pop(phone_number, None)  # Limpiamos el estado del usuario
         menu = (
-            "👋 ¡Bienvenido al bot de inventario!\n"
+            "👋 ¡Hola nombre, soy Kardex!\n"
             "Elige una opción:\n"
             "1️⃣ Ver productos\n"
             "2️⃣ Filtrar por código\n"
@@ -27,8 +27,7 @@ def whatsapp_bot():
             "6️⃣ Registrar entrada\n"
             "7️⃣ Registrar salida\n"
             "8️⃣ Reporte\n"
-            "9️⃣ Sugerencias de compra\n"
-            "0️⃣ Revisar stock mínimo / vencimiento"
+            "9️⃣ Revisar stock mínimo / vencimiento"
         )
         msg.body(menu)
         return str(resp)
@@ -379,6 +378,9 @@ def whatsapp_bot():
             hoja.update_cell(fila, 6, str(nueva_cantidad))  # Columna de cantidad (6)
             hoja.update_cell(fila, 9, fecha)  # Columna de última compra (9)
 
+            # Registrar en historial
+            registrar_movimiento(hoja, "Entrada", producto, int(cantidad_extra), nueva_cantidad)
+
             msg.body(f"✅ Se registró la entrada. Nuevo stock: {nueva_cantidad}")
             user_states.pop(phone_number, None)
             return str(resp)
@@ -431,6 +433,9 @@ def whatsapp_bot():
 
             nuevo_stock = cantidad_actual - cantidad_retirar
             hoja.update_cell(fila, 6, str(nuevo_stock))  # Columna cantidad (6)
+
+            # Registrar en historial
+            registrar_movimiento(hoja, "Salida", producto, cantidad_retirar, nuevo_stock)
 
             msg.body(f"✅ Salida registrada. Nuevo stock de {producto[1]} {producto[2]}: {nuevo_stock}")
             user_states.pop(phone_number, None)
@@ -487,7 +492,10 @@ def whatsapp_bot():
     elif incoming_msg == "7":
         user_states[phone_number] = {"step": "salida_codigo"}
         msg.body("📤 Ingresa el código del producto del que deseas registrar una salida:")
-        return str(resp)     
+        return str(resp)
+    # Opción 8: Reporte
+    elif incoming_msg == "8":
+        return str(resp)
     return str(resp)
     
 if __name__ == "__main__":
