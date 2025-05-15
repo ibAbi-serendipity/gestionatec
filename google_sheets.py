@@ -97,26 +97,28 @@ def obtener_productos(hoja):
         logging.error(f"❌ Error al leer los datos de la hoja del cliente: {e}")
         return None
 
-def registrar_movimiento(hoja, tipo, producto, cantidad, stock_final):
+def registrar_movimiento(phone_number, tipo, codigo, nombre, cantidad, stock_final):
     """
     Registra un movimiento de entrada o salida en la hoja 'Historial de movimientos'.
     """
     try:
-        spreadsheet = hoja.spreadsheet
-        try:
-            historial = spreadsheet.worksheet("Historial de movimientos")
-        except:
-            historial = spreadsheet.add_worksheet(title="Historial de movimientos", rows="1000", cols="6")
-            historial.append_row(["Fecha", "Código", "Nombre", "Tipo", "Cantidad", "Stock Final"])
+        url = get_client_sheet_url(phone_number)
+        if not url:
+            logging.error("❌ No se encontró la hoja del cliente para historial.")
+            return False
 
-        fecha = datetime.now().strftime("%Y-%m-%d")
-        historial.append_row([
-            fecha,
-            producto[0],  # Código
-            producto[1],  # Nombre
-            tipo,
-            str(cantidad),
-            str(stock_final)
-        ])
+        cliente_sheet = gc.open_by_url(url)
+        try:
+            hoja_historial = cliente_sheet.worksheet("Historial de movimientos")
+        except:
+            hoja_historial = cliente_sheet.add_worksheet(title="Historial de movimientos", rows="1000", cols="6")
+            hoja_historial.append_row(["Fecha", "Código", "Nombre", "Tipo", "Cantidad", "Stock final"])
+
+        from datetime import datetime
+        ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fila = [ahora, codigo, nombre, tipo, str(cantidad), str(stock_final)]
+        hoja_historial.append_row(fila)
+        return True
     except Exception as e:
         logging.error(f"❌ Error al registrar movimiento: {e}")
+    return False

@@ -1,6 +1,7 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento  # Importamos la función para obtener los productos
+from reportes import generar_reporte_pdf  # Importamos la función para generar el reporte PDF
 
 app = Flask(__name__)
 user_states = {}  # Aquí definimos el diccionario para guardar el estado de los usuarios
@@ -379,7 +380,7 @@ def whatsapp_bot():
             hoja.update_cell(fila, 9, fecha)  # Columna de última compra (9)
 
             # Registrar en historial
-            registrar_movimiento(hoja, "Entrada", producto, int(cantidad_extra), nueva_cantidad)
+            registrar_movimiento(phone_number, "Entrada", estado["codigo"], producto[1], cantidad_extra, nueva_cantidad)
 
             msg.body(f"✅ Se registró la entrada. Nuevo stock: {nueva_cantidad}")
             user_states.pop(phone_number, None)
@@ -435,7 +436,7 @@ def whatsapp_bot():
             hoja.update_cell(fila, 6, str(nuevo_stock))  # Columna cantidad (6)
 
             # Registrar en historial
-            registrar_movimiento(hoja, "Salida", producto, cantidad_retirar, nuevo_stock)
+            registrar_movimiento(phone_number, "Salida", estado["codigo"], producto[1], cantidad_retirar, nuevo_stock)
 
             msg.body(f"✅ Salida registrada. Nuevo stock de {producto[1]} {producto[2]}: {nuevo_stock}")
             user_states.pop(phone_number, None)
@@ -495,6 +496,12 @@ def whatsapp_bot():
         return str(resp)
     # Opción 8: Reporte
     elif incoming_msg == "8":
+        filepath = generar_reporte_pdf(phone_number)
+        if filepath and os.path.exists(filepath):
+            msg.body("📊 Tu reporte ha sido generado.")
+            msg.media(f"{TU_DOMINIO_PUBLICO}/{filepath}")  # si está en un bucket o servidor
+        else:
+            msg.body("❌ No se pudo generar el reporte. Asegúrate de tener historial de ventas.")
         return str(resp)
     return str(resp)
     
