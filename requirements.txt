@@ -4,3 +4,7 @@ gspread
 oauth2client
 python-dotenv
 reportlab
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
