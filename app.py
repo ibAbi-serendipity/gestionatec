@@ -332,7 +332,8 @@ def whatsapp_bot():
                     })
                     msg.body(
                         f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
-                        "📅 Ingresa la nueva fecha de última compra (AAAA-MM-DD):"
+                        f"📦 Stock actual: {row[5]}\n"
+                        "📅 Ingresa la fecha de compra (AAAA-MM-DD):"
                     )
                     return str(resp)
 
@@ -413,12 +414,16 @@ def whatsapp_bot():
             for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
                 if row[0] == codigo:
                     estado.update({
-                        "step": "salida_cantidad",
+                        "step": "salida_fecha",
                         "fila": i,
                         "producto": row,
                         "codigo": codigo
                     })
-                    msg.body("🔢 Ingresa la cantidad que deseas retirar:")
+                    msg.body(
+                        f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
+                        f"📦 Stock actual: {row[5]}\n"
+                        "🔢 Ingresa la fecha de salida del producto (AAAA-MM-DD):"
+                    )
                     return str(resp)
 
             msg.body("❌ Código no encontrado. ¿Deseas ingresar otro código? (sí / no)")
@@ -432,6 +437,20 @@ def whatsapp_bot():
             else:
                 user_states.pop(phone_number, None)
                 msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
+            return str(resp)
+
+        elif phone_number in user_states and user_states[phone_number].get("step") == "salida_fecha":
+            fecha_salida = incoming_msg.strip()
+            if len(fecha_salida) != 10 or fecha_salida[4] != "-" or fecha_salida[7] != "-":
+                msg.body("❌ Formato de fecha inválido. Usa AAAA-MM-DD.")
+                return str(resp)
+
+            user_states[phone_number]["fecha_salida"] = fecha_salida
+            user_states[phone_number]["step"] = "salida_cantidad"
+            producto = user_states[phone_number]["producto"]
+            msg.body(
+                f"🔢 Ingresa la cantidad que deseas retirar del producto {producto[1]} - {producto[2]}:"
+            )
             return str(resp)
 
         elif phone_number in user_states and user_states[phone_number].get("step") == "salida_cantidad":
@@ -454,8 +473,16 @@ def whatsapp_bot():
             nuevo_stock = cantidad_actual - cantidad_retirar
             hoja.update_cell(fila, 6, str(nuevo_stock))  # Columna cantidad (6)
 
-            # Registrar en historial
-            registrar_movimiento(phone_number, "Salida", estado["codigo"], producto[1], cantidad_retirar, nuevo_stock)
+            # Registrar en historial con fecha
+            registrar_movimiento(
+                phone_number,
+                "Salida",
+                estado["codigo"],
+                producto[1],
+                cantidad_retirar,
+                nuevo_stock,
+                fecha=estado["fecha_salida"]
+            )
 
             msg.body(f"✅ Salida registrada. Nuevo stock de {producto[1]} {producto[2]}: {nuevo_stock}")
             user_states.pop(phone_number, None)
