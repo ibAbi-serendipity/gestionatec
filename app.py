@@ -115,8 +115,7 @@ def whatsapp_bot():
                     estado["cantidad"],
                     estado["precio"],
                     estado["stock_minimo"],
-                    estado["ultima_compra"],
-                    ""  # última compra (puede llenarse luego)
+                    estado["lugar"], 
                 ]
                 hoja.append_row(nuevo_producto)
                 msg.body(f"✅ Producto '{estado['nombre']}' agregado con código {codigo}.\n"
@@ -130,7 +129,7 @@ def whatsapp_bot():
             if incoming_msg.lower() in ["sí", "si"]:
                 estado["step"] = "esperando_datos"
                 msg.body("Por favor envía los datos del nuevo producto en este formato:\n"
-                         "'Nombre, Marca, Fecha (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo'")
+                         "'Nombre, Marca, Fecha de caducidad (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo'")
             elif incoming_msg.lower() == "no":
                 user_states.pop(phone_number)
                 msg.body("📋 Has salido del registro de productos. Escribe 'menu' para ver las opciones.")
@@ -161,7 +160,7 @@ def whatsapp_bot():
                         f"📦 Cantidad: {p['cantidad']}\n"
                         f"💵 Precio: S/ {p['precio']}\n"
                         f"📉 Stock mínimo: {p['stock_minimo']}\n"
-                        f"🛒 Última compra: {p['ultima_compra']}\n\n"
+                        f"🛒 Lugar de venta: {p['lugar']}\n\n"
                         "¿Deseas consultar otro código? (sí / no)"
                     )
                     msg.body(respuesta)
@@ -203,7 +202,7 @@ def whatsapp_bot():
                 }
                 msg.body(
                     f"🔍 Producto encontrado: {producto[1]} - {producto[2]}\n"
-                    "¿Qué campo deseas modificar? (fecha / costo / precio / stock mínimo)"
+                    "¿Qué campo deseas modificar? (fecha de caducidad / costo / precio / stock mínimo)"
                 )
             
             if not encontrado:
@@ -499,12 +498,13 @@ def whatsapp_bot():
         return str(resp)
     # Opción 8: Reporte
     elif incoming_msg == "8":
+        msg.body("📊 Generando tu reporte, por favor espera unos segundos...")
         filepath = generar_reporte_pdf(phone_number)
-        if filepath and os.path.exists(filepath):
-            msg.body("📊 Tu reporte ha sido generado.")
-            msg.media(f"{TU_DOMINIO_PUBLICO}/{filepath}")  # si está en un bucket o servidor
+        if filepath:
+            msg.media(filepath)
+            msg.body("✅ Aquí está tu reporte en PDF.")
         else:
-            msg.body("❌ No se pudo generar el reporte. Asegúrate de tener historial de ventas.")
+            msg.body("❌ No se pudo generar el reporte. Asegúrate de tener una hoja de historial de movimientos.")
         return str(resp)
     return str(resp)
     

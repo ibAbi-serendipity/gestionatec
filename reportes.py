@@ -1,111 +1,97 @@
 import os
 import io
-import datetime
-import gspread
 import json
-import logging
+import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-from oauth2client.service_account import ServiceAccountCredentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.service_account import Credentials
+import gspread
 
-# Configurar acceso a Google Sheets
-SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds_dict = json.loads(os.environ.get("GOOGLE_CREDS"))
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPE)
-gc = gspread.authorize(creds)
+# --- Configuración Google API ---
+SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets.readonly']
+creds_json = os.environ.get("GOOGLE_CREDS")
+creds_dict = json.loads(creds_json)
+creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 
-def generar_reporte_pdf(phone_number):
+drive_service = build('drive', 'v3', credentials=creds)
+gsheets_client = gspread.authorize(creds)
+
+# --- Funciones ---
+def get_historial_sheet(phone_number):
     try:
-        # Obtener hoja "Historial de movimientos"
-        url = get_client_sheet_url(phone_number)
-        if not url:
-            return None
-        doc = gc.open_by_url(url)
-        try:
-            historial = doc.worksheet("Historial de movimientos")
-        except:
-            return None
-
-        registros = historial.get_all_records()
-        if not registros:
-            return None
-
-        # Procesar los datos
-        conteo_por_fecha = {}
-        ventas_por_producto = {}
-
-        for row in registros:
-            if row.get("Tipo") == "Salida":
-                fecha = row.get("Fecha")
-                producto = row.get("Nombre")
-                cantidad = int(row.get("Cantidad", 0))
-
-                # Contar ventas por fecha
-                if fecha:
-                    conteo_por_fecha[fecha] = conteo_por_fecha.get(fecha, 0) + cantidad
-
-                # Contar ventas por producto
-                if producto:
-                    ventas_por_producto[producto] = ventas_por_producto.get(producto, 0) + cantidad
-
-        fechas_mas_ventas = sorted(conteo_por_fecha.items(), key=lambda x: x[1], reverse=True)[:5]
-        productos_mas = sorted(ventas_por_producto.items(), key=lambda x: x[1], reverse=True)[:5]
-        productos_menos = sorted(ventas_por_producto.items(), key=lambda x: x[1])[:5]
-
-        # Crear PDF
-        buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(40, height - 50, "📊 Reporte de Ventas")
-
-        y = height - 100
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(40, y, "Fechas con más ventas:")
-        c.setFont("Helvetica", 11)
-        for fecha, total in fechas_mas_ventas:
-            y -= 18
-            c.drawString(60, y, f"{fecha}: {total} unidades")
-
-        y -= 30
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(40, y, "Productos más vendidos:")
-        c.setFont("Helvetica", 11)
-        for prod, total in productos_mas:
-            y -= 18
-            c.drawString(60, y, f"{prod}: {total} unidades")
-
-        y -= 30
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(40, y, "Productos menos vendidos:")
-        c.setFont("Helvetica", 11)
-        for prod, total in productos_menos:
-            y -= 18
-            c.drawString(60, y, f"{prod}: {total} unidades")
-
-        c.showPage()
-        c.save()
-        buffer.seek(0)
-
-        # Guardar en archivo temporal (puedes subirlo a un bucket o retornar el path local)
-        filename = f"reporte_{phone_number}.pdf"
-        filepath = os.path.join("./reportes", filename)
-        os.makedirs("./reportes", exist_ok=True)
-        with open(filepath, "wb") as f:
-            f.write(buffer.read())
-
-        return filepath  # Retorna la ruta local del PDF
-
+        clientes_sheet = gsheets_client.open("Clientes").sheet1
+        rows = clientes_sheet.get_all_records()
+        for row in rows:
+            if str(row.get("Número", "")).strip() == phone_number:
+                url = row.get("URL de hoja")
+                if url:
+                    book = gsheets_client.open_by_url(url)
+                    return book.worksheet("Historial de movimientos")
+        return None
     except Exception as e:
-        print(f"Error generando reporte: {e}")
+        print(f"❌ Error al acceder a historial: {e}")
         return None
 
-# Esta función debe estar disponible desde google_sheets.py o duplicarse aquí:
-def get_client_sheet_url(phone_number):
-    clientes_sheet = gc.open("Clientes").sheet1
-    rows = clientes_sheet.get_all_records()
-    for row in rows:
-        if str(row.get("Número", "")).strip() == phone_number:
-            return row.get("URL de hoja")
-    return None
+def analizar_datos(historial):
+    data = historial.get_all_values()[1:]  # Ignorar encabezado
+    conteo_fechas = {}
+    conteo_productos = {}
+
+    for row in data:
+        fecha, codigo, nombre, tipo, cantidad, _ = row
+        cantidad = int(cantidad)
+
+        # Acumular por fecha
+        if tipo.lower() == "salida":
+            conteo_fechas[fecha] = conteo_fechas.get(fecha, 0) + cantidad
+            conteo_productos[nombre] = conteo_productos.get(nombre, 0) + cantidad
+
+    fecha_mas_ventas = max(conteo_fechas.items(), key=lambda x: x[1], default=("N/A", 0))
+    mas_vendido = max(conteo_productos.items(), key=lambda x: x[1], default=("N/A", 0))
+    menos_vendido = min(conteo_productos.items(), key=lambda x: x[1], default=("N/A", 0))
+
+    return fecha_mas_ventas, mas_vendido, menos_vendido
+
+def generar_pdf(fecha_max, mas_vendido, menos_vendido, filename):
+    c = canvas.Canvas(filename, pagesize=A4)
+    c.setFont("Helvetica", 14)
+    c.drawString(50, 800, "📊 Reporte de ventas")
+
+    c.setFont("Helvetica", 12)
+    c.drawString(50, 770, f"• Fecha con más ventas: {fecha_max[0]} ({fecha_max[1]} unidades)")
+    c.drawString(50, 750, f"• Producto más vendido: {mas_vendido[0]} ({mas_vendido[1]} unidades)")
+    c.drawString(50, 730, f"• Producto menos vendido: {menos_vendido[0]} ({menos_vendido[1]} unidades)")
+
+    c.drawString(50, 690, f"Generado el: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    c.save()
+
+def subir_pdf_drive(filepath, filename):
+    file_metadata = {
+        'name': filename,
+        'mimeType': 'application/pdf'
+    }
+    media = MediaFileUpload(filepath, mimetype='application/pdf')
+    file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    file_id = file.get('id')
+
+    drive_service.permissions().create(
+        fileId=file_id,
+        body={'type': 'anyone', 'role': 'reader'},
+    ).execute()
+
+    return f"https://drive.google.com/uc?id={file_id}&export=download"
+
+def generar_reporte_pdf(phone_number):
+    hoja = get_historial_sheet(phone_number)
+    if not hoja:
+        return None
+
+    fecha_max, mas_vendido, menos_vendido = analizar_datos(hoja)
+    filename = f"reporte_{phone_number}.pdf"
+    filepath = os.path.join("/tmp", filename)
+    generar_pdf(fecha_max, mas_vendido, menos_vendido, filepath)
+
+    url_pdf = subir_pdf_drive(filepath, filename)
+    return url_pdf
