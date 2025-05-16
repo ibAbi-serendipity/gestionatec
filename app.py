@@ -1,6 +1,8 @@
+import os
+import logging
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento  # Importamos la función para obtener los productos
+from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name  # Importamos la función para obtener los productos
 from reportes import generar_reporte_pdf  # Importamos la función para generar el reporte PDF
 
 app = Flask(__name__)
@@ -17,8 +19,9 @@ def whatsapp_bot():
     
     if incoming_msg.lower() in ["hola", "menu", "inicio"]:
         user_states.pop(phone_number, None)  # Limpiamos el estado del usuario
+        nombre_cliente = get_client_name(phone_number)
         menu = (
-            "👋 ¡Hola nombre, soy Kardex!\n"
+            "👋 ¡Hola {nombre_cliente}, soy Kardex!\n"
             "Elige una opción:\n"
             "1️⃣ Ver productos\n"
             "2️⃣ Filtrar por código\n"
@@ -49,7 +52,7 @@ def whatsapp_bot():
                     "cantidad": partes[4],
                     "precio": partes[5],
                     "stock_minimo": partes[6],
-                    "ultima_compra": partes[7],
+                    "lugar": partes[7],
                     "step": "esperando_categoria"
                 })
                 msg.body("📦 ¿Cuál es la categoría del producto? (perecible / no perecible / limpieza / herramienta o material)")
@@ -472,7 +475,7 @@ def whatsapp_bot():
     elif incoming_msg == "3":
         user_states[phone_number] = {"step": "esperando_datos"}
         msg.body("Por favor envía los datos del producto en este formato:\n"
-                 "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Fecha de compra (AAAA-MM-DD)\n")
+                 "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Lugar de almacenamiento\n")
         return str(resp)
     # Opción 4: Actualizar producto
     elif incoming_msg == "4":

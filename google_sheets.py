@@ -97,6 +97,18 @@ def obtener_productos(hoja):
         logging.error(f"❌ Error al leer los datos de la hoja del cliente: {e}")
         return None
 
+def get_client_name(phone_number):
+    try:
+        clientes_sheet = gc.open("Clientes").sheet1
+        rows = clientes_sheet.get_all_records()
+        for row in rows:
+            numero = str(row.get("Número", "")).strip()
+            if numero == phone_number.strip():
+                return row.get("Nombre", "Cliente")
+    except Exception as e:
+        logging.error(f"❌ Error al obtener nombre del cliente: {e}")
+    return "Cliente"
+
 def registrar_movimiento(phone_number, tipo, codigo, nombre, cantidad, stock_final):
     """
     Registra un movimiento de entrada o salida en la hoja 'Historial de movimientos'.
