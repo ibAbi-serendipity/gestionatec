@@ -352,37 +352,54 @@ def whatsapp_bot():
         elif estado.get("step") == "entrada_fecha":
             nueva_fecha = incoming_msg.strip()
             if len(nueva_fecha) != 10 or nueva_fecha[4] != "-" or nueva_fecha[7] != "-":
-                msg.body("❌ Formato de fecha inválido. ")
+                msg.body("❌ Formato de fecha inválido. Usa el formato AAAA-MM-DD.")
                 return str(resp)
-            fecha_actual = estado["producto"][8]  # Columna 'última compra'
-            if nueva_fecha == fecha_actual:
-                msg.body(f"⚠️ La fecha ingresada es igual a la ya registrada ({fecha_actual}). Ingresa una fecha distinta:")
-                return str(resp)
-            estado["nueva_fecha"] = nueva_fecha
+
+            estado["nueva_fecha"] = nueva_fecha 
+
+            # Revisar si ya hay un movimiento igual
+            historial = get_historial_sheet_for_number(phone_number)
+            if historial:
+                registros = historial.get_all_values()[1:]  # Omitir encabezado
+                existe = any(
+                    row[0] == nueva_fecha and
+                    row[1] == estado["codigo"] and
+                    row[3] == "Entrada"
+                    for row in registros
+                )
+                if existe:
+                    estado["step"] = "confirmar_entrada_duplicada"
+                    msg.body(f"⚠️ Ya existe una entrada del producto {estado['codigo']} para la fecha {nueva_fecha}.\n¿Deseas registrarla nuevamente? (sí / no)")
+                    return str(resp)
+
             estado["step"] = "entrada_cantidad"
-            msg.body(f"📅 Fecha de última compra actualizada a {nueva_fecha}.\n"
-                    "🔢 Ahora ingresa la cantidad que deseas registrar:")
+            msg.body(f"📅 Fecha registrada: {nueva_fecha}.\n🔢 Ingresa la cantidad que deseas registrar:")
             return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "entrada_cantidad":
+        elif estado.get("step") == "confirmar_entrada_duplicada":
+            if incoming_msg.lower() in ["sí", "si"]:
+                estado["step"] = "entrada_cantidad"
+                msg.body("🔢 Ingresa la cantidad que deseas registrar:")
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Registro cancelado. Escribe 'menu' para ver más opciones.")
+            return str(resp)
+        
+        elif estado.get("step") == "entrada_cantidad":
             cantidad_extra = incoming_msg.strip()
             if not cantidad_extra.isdigit():
                 msg.body("❌ Por favor ingresa un número válido.")
                 return str(resp)
 
-            estado = user_states[phone_number]
             hoja = get_inventory_sheet_for_number(phone_number)
             fila = estado["fila"]
             producto = estado["producto"]
-            fecha = estado["nueva_fecha"]
             cantidad_actual = int(producto[5])
             nueva_cantidad = cantidad_actual + int(cantidad_extra)
 
             hoja.update_cell(fila, 6, str(nueva_cantidad))  # Columna de cantidad (6)
-            hoja.update_cell(fila, 9, fecha)  # Columna de última compra (9)
-
             # Registrar en historial
-            registrar_movimiento(phone_number, "Entrada", estado["codigo"], producto[1], cantidad_extra, nueva_cantidad)
+            registrar_movimiento(phone_number, "Entrada", estado["codigo"], producto[1], cantidad_extra, nueva_cantidad, estado["nueva_fecha"])
 
             msg.body(f"✅ Se registró la entrada. Nuevo stock: {nueva_cantidad}")
             user_states.pop(phone_number, None)
