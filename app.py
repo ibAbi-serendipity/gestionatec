@@ -18,10 +18,10 @@ def whatsapp_bot():
     msg = resp.message()
     
     if incoming_msg.lower() in ["hola", "menu", "inicio"]:
-        user_states.pop(phone_number, None)  # Limpiamos el estado del usuario
         nombre_cliente = get_client_name(phone_number)
+        user_states.pop(phone_number, None)  # Limpiamos el estado del usuario
         menu = (
-            "👋 ¡Hola {nombre_cliente}, soy Kardex!\n"
+            f"👋 ¡Hola {nombre_cliente}, soy Kardex!\n"
             "Elige una opción:\n"
             "1️⃣ Ver productos\n"
             "2️⃣ Filtrar por código\n"

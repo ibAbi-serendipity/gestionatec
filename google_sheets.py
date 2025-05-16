@@ -102,12 +102,11 @@ def get_client_name(phone_number):
         clientes_sheet = gc.open("Clientes").sheet1
         rows = clientes_sheet.get_all_records()
         for row in rows:
-            numero = str(row.get("Número", "")).strip()
-            if numero == phone_number.strip():
-                return row.get("Nombre", "Cliente")
+            if str(row.get("Número", "")).strip() == phone_number:
+                return row.get("Nombre", "cliente")
     except Exception as e:
         logging.error(f"❌ Error al obtener nombre del cliente: {e}")
-    return "Cliente"
+    return "cliente"
 
 def registrar_movimiento(phone_number, tipo, codigo, nombre, cantidad, stock_final):
     """
