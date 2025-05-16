@@ -410,7 +410,7 @@ def whatsapp_bot():
             hoja = get_inventory_sheet_for_number(phone_number)
             productos = hoja.get_all_values()
             codigo = incoming_msg.strip().upper()
-
+            estado = user_states[phone_number]
             for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
                 if row[0] == codigo:
                     estado.update({
