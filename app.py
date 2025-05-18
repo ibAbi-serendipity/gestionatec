@@ -1,5 +1,6 @@
 import os
 import logging
+import datetime
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name  # Importamos la función para obtener los productos
@@ -407,28 +408,40 @@ def whatsapp_bot():
             return str(resp)
         # Paso 7: Registrar salida
         elif phone_number in user_states and user_states[phone_number].get("step") == "salida_codigo":
-            hoja = get_inventory_sheet_for_number(phone_number)
-            productos = hoja.get_all_values()
-            codigo = incoming_msg.strip().upper()
-            estado = user_states[phone_number]
-            for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
-                if row[0] == codigo:
-                    estado.update({
-                        "step": "salida_fecha",
-                        "fila": i,
-                        "producto": row,
-                        "codigo": codigo
-                    })
-                    msg.body(
-                        f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
-                        f"📦 Stock actual: {row[5]}\n"
-                        "🔢 Ingresa la fecha de salida del producto (AAAA-MM-DD):"
-                    )
+            try:
+                hoja = get_inventory_sheet_for_number(phone_number)
+                if not hoja:
+                    msg.body("❌ No se pudo acceder a tu hoja de productos. Intenta más tarde.")
+                    user_states.pop(phone_number, None)
                     return str(resp)
 
-            msg.body("❌ Código no encontrado. ¿Deseas ingresar otro código? (sí / no)")
-            user_states[phone_number] = {"step": "salida_codigo_reintentar"}
-            return str(resp)
+                productos = hoja.get_all_values()
+                codigo = incoming_msg.strip().upper()
+
+                for i, row in enumerate(productos[1:], start=2):
+                    if row[0] == codigo:
+                        estado.update({
+                            "step": "salida_fecha",
+                            "fila": i,
+                            "producto": row,
+                            "codigo": codigo
+                        })
+                        msg.body(
+                            f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
+                            f"📦 Stock actual: {row[5]}\n"
+                            "📅 Ingresa la fecha de salida del producto (AAAA-MM-DD):"
+                        )
+                        return str(resp)
+
+                msg.body("❌ Código no encontrado. ¿Deseas ingresar otro código? (sí / no)")
+                user_states[phone_number] = {"step": "salida_codigo_reintentar"}
+                return str(resp)
+
+            except Exception as e:
+                import logging
+                logging.error(f"❌ Error al procesar salida: {e}")
+                msg.body("⚠️ Hubo un problema al consultar tu inventario. Intenta más tarde.")
+                return str(resp)
 
         elif phone_number in user_states and user_states[phone_number].get("step") == "salida_codigo_reintentar":
             if incoming_msg.lower() == "sí":
@@ -549,6 +562,43 @@ def whatsapp_bot():
             msg.body("✅ Aquí está tu reporte en PDF.")
         else:
             msg.body("❌ No se pudo generar el reporte. Asegúrate de tener una hoja de historial de movimientos.")
+        return str(resp)
+    # Opción 9: Revisar stock mínimo / vencimiento
+    elif incoming_msg == "9":
+        hoja = get_inventory_sheet_for_number(phone_number)
+        if not hoja:
+            msg.body("❌ No se encontró tu hoja de productos.")
+            return str(resp)
+
+        productos = obtener_productos(hoja)
+        if not productos:
+            msg.body("📭 No hay productos registrados.")
+            return str(resp)
+
+        hoy = datetime.datetime.now().date()
+        proximos_vencimientos = []
+        bajo_stock = []
+
+        for p in productos:
+            try:
+                stock = int(p["cantidad"])
+                stock_min = int(p["stock_minimo"])
+                fecha_venc = datetime.datetime.strptime(p["fecha"], "%Y-%m-%d").date()
+            except:
+                continue  # saltamos si los datos no son válidos
+
+            if stock < stock_min:
+                bajo_stock.append(f"🔻 {p['nombre']} ({p['marca']}) - Stock: {stock}, Mínimo: {stock_min}")
+
+            if 0 <= (fecha_venc - hoy).days <= 21:
+                proximos_vencimientos.append(f"⏳ {p['nombre']} ({p['marca']}) - Vence: {p['fecha']}")
+
+        respuesta = "*📋 Productos con bajo stock:*\n"
+        respuesta += "\n".join(bajo_stock) if bajo_stock else "✅ Todos los productos están sobre el mínimo."
+        respuesta += "\n\n*📅 Próximos a vencer:*\n"
+        respuesta += "\n".join(proximos_vencimientos) if proximos_vencimientos else "✅ Ningún producto vence pronto."
+
+        msg.body(respuesta)
         return str(resp)
     return str(resp)
     
