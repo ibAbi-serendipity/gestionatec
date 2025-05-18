@@ -575,29 +575,30 @@ def whatsapp_bot():
             msg.body("📭 No hay productos registrados.")
             return str(resp)
 
-        hoy = datetime.datetime.now().date()
-        proximos_vencimientos = []
-        bajo_stock = []
+        hoy = datetime.date.today()
+        stock_minimos = []
+        proximos_vencer = []
 
         for p in productos:
             try:
-                stock = int(p["cantidad"])
-                stock_min = int(p["stock_minimo"])
-                fecha_venc = datetime.datetime.strptime(p["fecha"], "%Y-%m-%d").date()
-            except:
-                continue  # saltamos si los datos no son válidos
+                # Productos con stock en o por debajo del mínimo
+                if int(p["cantidad"]) <= int(p["stock_minimo"]):
+                    stock_minimos.append(f"- {p['nombre']} ({p['marca']}) | Stock: {p['cantidad']} | Mínimo: {p['stock_minimo']}")
 
-            if stock <= stock_min:
-                bajo_stock.append(f"🔻 {p['nombre']} ({p['marca']}) - Stock: {stock}, Mínimo: {stock_min}")
+                # Productos que vencen dentro de 21 días
+                fecha_cad = datetime.datetime.strptime(p["fecha"], "%Y-%m-%d").date()
+                if 0 <= (fecha_cad - hoy).days <= 21:
+                    proximos_vencer.append(f"- {p['nombre']} ({p['marca']}) | Vence: {p['fecha']}")
+            except Exception:
+                continue  # Si hay error en datos, los ignoramos
 
-            if 0 <= (fecha_venc - hoy).days <= 21:
-                proximos_vencimientos.append(f"⏳ {p['nombre']} ({p['marca']}) - Vence: {p['fecha']}")
+        respuesta = "📋 *Productos con stock mínimo:*\n"
+        respuesta += "\n".join(stock_minimos) if stock_minimos else "✅ No hay productos con stock bajo."
 
-        respuesta = "*📋 Productos con bajo stock:*\n"
-        respuesta += "\n".join(bajo_stock) if bajo_stock else "✅ Todos los productos están sobre el mínimo."
-        respuesta += "\n\n*📅 Próximos a vencer:*\n"
-        respuesta += "\n".join(proximos_vencimientos) if proximos_vencimientos else "✅ Ningún producto vence pronto."
+        respuesta += "\n\n⏰ *Productos próximos a vencer (21 días):*\n"
+        respuesta += "\n".join(proximos_vencer) if proximos_vencer else "✅ No hay productos próximos a vencer."
 
+        respuesta += "\n\n📲 Escribe *menu* para regresar al menú principal."
         msg.body(respuesta)
         return str(resp)
     return str(resp)
