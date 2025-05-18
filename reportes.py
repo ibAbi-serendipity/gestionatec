@@ -41,7 +41,7 @@ def analizar_datos(historial):
 
     for row in data:
         fecha, codigo, nombre, tipo, cantidad, _ = row
-        cantidad = int(cantidad)
+        cantidad = int(cantidad.strip().replace("'", ""))
 
         # Acumular por fecha
         if tipo.lower() == "salida":

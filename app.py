@@ -1,6 +1,6 @@
 import os
 import logging
-import datetime
+from datetime import datetime 
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name  # Importamos la función para obtener los productos
@@ -9,6 +9,12 @@ from reportes import generar_reporte_pdf  # Importamos la función para generar 
 app = Flask(__name__)
 user_states = {}  # Aquí definimos el diccionario para guardar el estado de los usuarios
 
+def normalizar_fecha(fecha_str):
+                    try:
+                        return datetime.strptime(fecha_str.strip(), "%Y-%m-%d").date()
+                    except ValueError:
+                        return None
+                        
 @app.route("/webhook", methods=["POST"])
 def whatsapp_bot():
     incoming_msg = request.values.get("Body", "").strip()
@@ -364,9 +370,9 @@ def whatsapp_bot():
             if historial:
                 registros = historial.get_all_values()[1:]  # Omitir encabezado
                 existe = any(
-                    row[0] == nueva_fecha and
-                    row[1] == estado["codigo"] and
-                    row[3] == "Entrada"
+                    normalizar_fecha(row[0]) == nueva_fecha_obj and
+                    row[1].strip() == estado["codigo"] and
+                    row[3].strip().lower() == "entrada"
                     for row in registros
                 )
                 if existe:
@@ -452,27 +458,52 @@ def whatsapp_bot():
                 msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
             return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "salida_fecha":
+        elif estado.get("step") == "salida_fecha":
             fecha_salida = incoming_msg.strip()
-            if len(fecha_salida) != 10 or fecha_salida[4] != "-" or fecha_salida[7] != "-":
-                msg.body("❌ Formato de fecha inválido. Usa AAAA-MM-DD.")
+            fecha_obj = normalizar_fecha(fecha_salida)
+
+            if not fecha_obj:
+                msg.body("❌ Formato de fecha inválido. Usa el formato AAAA-MM-DD.")
                 return str(resp)
 
-            user_states[phone_number]["fecha_salida"] = fecha_salida
-            user_states[phone_number]["step"] = "salida_cantidad"
-            producto = user_states[phone_number]["producto"]
-            msg.body(
-                f"🔢 Ingresa la cantidad que deseas retirar del producto {producto[1]} - {producto[2]}:"
-            )
+            estado["fecha_salida"] = fecha_salida
+
+            # Verificar duplicado en historial
+            historial = get_historial_sheet_for_number(phone_number)
+            if historial:
+                registros = historial.get_all_values()[1:]
+                existe = any(
+                    normalizar_fecha(row[0]) == fecha_obj and
+                    row[1].strip() == estado["codigo"] and
+                    row[3].strip().lower() == "salida"
+                    for row in registros
+                )
+                if existe:
+                    estado["step"] = "confirmar_salida_duplicada"
+                    msg.body(f"⚠️ Ya hay una salida registrada para {estado['codigo']} en {fecha_salida}.\n¿Deseas registrarla nuevamente? (sí / no)")
+                    return str(resp)
+
+            estado["step"] = "salida_cantidad"
+            producto = estado["producto"]
+            msg.body(f"📅 Fecha registrada: {fecha_salida}.\n🔢 Ingresa la cantidad que deseas retirar del producto {producto[1]} - {producto[2]}:")
             return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "salida_cantidad":
+        elif estado.get("step") == "confirmar_salida_duplicada":
+            if incoming_msg.lower() in ["sí", "si"]:
+                estado["step"] = "salida_cantidad"
+                producto = estado["producto"]
+                msg.body(f"🔢 Ingresa la cantidad que deseas retirar del producto {producto[1]} - {producto[2]}:")
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Registro cancelado. Escribe 'menu' para ver más opciones.")
+            return str(resp)
+
+        elif estado.get("step") == "salida_cantidad":
             cantidad_salida = incoming_msg.strip()
             if not cantidad_salida.isdigit():
                 msg.body("❌ Por favor ingresa un número válido.")
                 return str(resp)
 
-            estado = user_states[phone_number]
             hoja = get_inventory_sheet_for_number(phone_number)
             fila = estado["fila"]
             producto = estado["producto"]
@@ -494,7 +525,7 @@ def whatsapp_bot():
                 producto[1],
                 cantidad_retirar,
                 nuevo_stock,
-                fecha=estado["fecha_salida"]
+                estado["fecha_salida"]
             )
 
             msg.body(f"✅ Salida registrada. Nuevo stock de {producto[1]} {producto[2]}: {nuevo_stock}")
@@ -556,12 +587,16 @@ def whatsapp_bot():
     # Opción 8: Reporte
     elif incoming_msg == "8":
         msg.body("📊 Generando tu reporte, por favor espera unos segundos...")
-        filepath = generar_reporte_pdf(phone_number)
-        if filepath:
-            msg.media(filepath)
-            msg.body("✅ Aquí está tu reporte en PDF.")
-        else:
-            msg.body("❌ No se pudo generar el reporte. Asegúrate de tener una hoja de historial de movimientos.")
+        try:
+            filepath = generar_reporte_pdf(phone_number)
+            if filepath:
+                msg.media(filepath)
+                msg.body("✅ Aquí está tu reporte en PDF.")
+            else:
+                msg.body("❌ No se pudo generar el reporte. Asegúrate de tener una hoja de historial de movimientos.")
+        except Exception as e:
+            logging.error(f"Error al generar el reporte: {e}")
+            msg.body("❌ Ocurrió un error al generar el reporte. Intenta nuevamente.")
         return str(resp)
     # Opción 9: Revisar stock mínimo / vencimiento
     elif incoming_msg == "9":
