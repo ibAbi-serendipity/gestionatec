@@ -1,9 +1,9 @@
 import os
 import logging
-from datetime import datetime 
+import datetime
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name  # Importamos la función para obtener los productos
+from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name, get_historial_sheet_for_number  # Importamos la función para obtener los productos
 from reportes import generar_reporte_pdf  # Importamos la función para generar el reporte PDF
 
 app = Flask(__name__)
@@ -610,7 +610,7 @@ def whatsapp_bot():
             msg.body("📭 No hay productos registrados.")
             return str(resp)
 
-        hoy = datetime.date.today()
+        hoy = datetime.datetime.today().date()
         stock_minimos = []
         proximos_vencer = []
 

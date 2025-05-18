@@ -40,8 +40,11 @@ def analizar_datos(historial):
     conteo_productos = {}
 
     for row in data:
-        fecha, codigo, nombre, tipo, cantidad, _ = row
-        cantidad = int(cantidad.strip().replace("'", ""))
+        fecha = row[0].strip().lstrip("'")
+        codigo = row[1].strip()
+        nombre = row[2].strip()
+        tipo = row[3].strip().lower()
+        cantidad = int(row[4].strip().lstrip("'"))
 
         # Acumular por fecha
         if tipo.lower() == "salida":

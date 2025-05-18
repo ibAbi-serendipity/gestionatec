@@ -108,6 +108,25 @@ def get_client_name(phone_number):
         logging.error(f"❌ Error al obtener nombre del cliente: {e}")
     return "cliente"
 
+def get_historial_sheet_for_number(phone_number):
+    """
+    Devuelve la hoja 'Historial de movimientos' del cliente basado en su número telefónico.
+    """
+    try:
+        clientes_sheet = gc.open("Clientes").sheet1
+        rows = clientes_sheet.get_all_records()
+        for row in rows:
+            if str(row.get("Número", "")).strip() == phone_number:
+                url = row.get("URL de hoja")
+                if url:
+                    libro = gc.open_by_url(url)
+                    return libro.worksheet("Historial de movimientos")
+        logging.warning("⚠️ No se encontró hoja de historial para este número.")
+        return None
+    except Exception as e:
+        logging.error(f"❌ Error al acceder a hoja de historial: {e}")
+        return None
+        
 def registrar_movimiento(phone_number, tipo, codigo, nombre, cantidad, stock_final, fecha=None):
     try:
         sheet_url = get_client_sheet_url(phone_number)
@@ -124,3 +143,4 @@ def registrar_movimiento(phone_number, tipo, codigo, nombre, cantidad, stock_fin
         hoja_historial.append_row(nuevo_registro)
     except Exception as e:
         logging.error(f"❌ Error al registrar movimiento: {e}")
+
