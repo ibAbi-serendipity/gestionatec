@@ -587,7 +587,7 @@ def whatsapp_bot():
             except:
                 continue  # saltamos si los datos no son válidos
 
-            if stock < stock_min:
+            if stock <= stock_min:
                 bajo_stock.append(f"🔻 {p['nombre']} ({p['marca']}) - Stock: {stock}, Mínimo: {stock_min}")
 
             if 0 <= (fecha_venc - hoy).days <= 21:
