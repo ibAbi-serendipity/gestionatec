@@ -1,6 +1,7 @@
 import os
 import logging
 import datetime
+from datetime import datetime
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name, get_historial_sheet_for_number  # Importamos la función para obtener los productos
