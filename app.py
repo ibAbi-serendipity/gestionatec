@@ -359,14 +359,17 @@ def whatsapp_bot():
 
         elif estado.get("step") == "entrada_fecha":
             nueva_fecha = incoming_msg.strip()
-            nueva_fecha_obj = normalizar_fecha(nueva_fecha)
             if len(nueva_fecha) != 10 or nueva_fecha[4] != "-" or nueva_fecha[7] != "-":
                 msg.body("❌ Formato de fecha inválido. Usa el formato AAAA-MM-DD.")
                 return str(resp)
 
-            estado["nueva_fecha"] = nueva_fecha 
+            nueva_fecha_obj = normalizar_fecha(nueva_fecha)
+            if not nueva_fecha_obj:
+                msg.body("❌ Fecha inválida. Asegúrate de que sea válida y con formato AAAA-MM-DD.")
+                return str(resp)
 
-            # Revisar si ya hay un movimiento igual
+            estado["nueva_fecha"] = nueva_fecha
+
             historial = get_historial_sheet_for_number(phone_number)
             if historial:
                 registros = historial.get_all_values()[1:]  # Omitir encabezado
