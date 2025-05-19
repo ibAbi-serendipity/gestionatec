@@ -1,6 +1,5 @@
 import os
 import logging
-import datetime
 from datetime import datetime
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
@@ -10,8 +9,12 @@ from reportes import generar_reporte_pdf  # Importamos la función para generar 
 app = Flask(__name__)
 user_states = {}  # Aquí definimos el diccionario para guardar el estado de los usuarios
 
-
-                        
+def normalizar_fecha(fecha_str):
+    try:
+        return datetime.strptime(fecha_str.strip(), "%Y-%m-%d").date()
+    except ValueError:
+        return None    
+        
 @app.route("/webhook", methods=["POST"])
 def whatsapp_bot():
     incoming_msg = request.values.get("Body", "").strip()
@@ -638,11 +641,6 @@ def whatsapp_bot():
         return str(resp)
     return str(resp)
 
-def normalizar_fecha(fecha_str):
-                    try:
-                        return datetime.strptime(fecha_str.strip(), "%Y-%m-%d").date()
-                    except ValueError:
-                        return None    
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
