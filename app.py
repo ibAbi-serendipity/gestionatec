@@ -420,7 +420,7 @@ def whatsapp_bot():
                     msg.body("❌ No se pudo acceder a tu hoja de productos. Intenta más tarde.")
                     user_states.pop(phone_number, None)
                     return str(resp)
-
+                estado = user_states[phone_number]
                 productos = hoja.get_all_values()
                 codigo = incoming_msg.strip().upper()
 
