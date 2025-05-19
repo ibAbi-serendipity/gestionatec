@@ -643,6 +643,6 @@ def normalizar_fecha(fecha_str):
                         return datetime.strptime(fecha_str.strip(), "%Y-%m-%d").date()
                     except ValueError:
                         return None    
-                        
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
