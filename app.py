@@ -616,7 +616,7 @@ def whatsapp_bot():
             msg.body("📭 No hay productos registrados.")
             return str(resp)
 
-        hoy = datetime.datetime.today().date()
+        hoy = datetime.today().date()
         stock_minimos = []
         proximos_vencer = []
 
