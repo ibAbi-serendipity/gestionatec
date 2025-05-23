@@ -74,12 +74,19 @@ def generar_pdf(fecha_max, mas_vendido, menos_vendido, filename):
     c.save()
 
 def subir_pdf_drive(filepath, filename):
+    # Coloca aquí el ID de tu carpeta de Drive
+    CARPETA_ID = "170H9rV7p5EsO6EF7oyyZSXPZXoVLryEt"
     file_metadata = {
         'name': filename,
+        'parents': [CARPETA_ID],
         'mimeType': 'application/pdf'
     }
     media = MediaFileUpload(filepath, mimetype='application/pdf')
-    file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    file = drive_service.files().create(
+        body=file_metadata, 
+        media_body=media, 
+        fields='id'
+    ).execute()
     file_id = file.get('id')
 
     drive_service.permissions().create(
