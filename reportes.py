@@ -30,7 +30,13 @@ def get_historial_sheet(phone_number):
                 url = row.get("URL de hoja")
                 if url:
                     book = gsheets_client.open_by_url(url)
-                    return book.worksheet("Historial de movimientos")
+                    try:
+                        historial = book.worksheet("Historial de movimientos")
+                        print("✅ Hoja 'Historial de movimientos' encontrada.")
+                        return historial
+                    except Exception as e:
+                        print(f"❌ Error al abrir la hoja 'Historial de movimientos': {e}")
+                        return None
         print(f"⚠️ No se encontró el número {phone_number} en la hoja Clientes")
         return None
     except Exception as e:
