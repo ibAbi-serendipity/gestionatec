@@ -24,8 +24,9 @@ def get_historial_sheet(phone_number):
         clientes_sheet = gsheets_client.open("Clientes").sheet1
         rows = clientes_sheet.get_all_records()
         for row in rows:
-            print(f"🔎 Revisando número: {row.get('Número')}")
-            if str(row.get("Número", "")).strip() == phone_number:
+            numero_hoja = str(row.get("Número", "")).strip()
+            print(f"📞 Comparando número: hoja='{numero_hoja}' vs recibido='{phone_number}'")
+            if numero_hoja == phone_number:
                 print(f"✅ Coincidencia encontrada: {row}")
                 url = row.get("URL de hoja")
                 if url:
