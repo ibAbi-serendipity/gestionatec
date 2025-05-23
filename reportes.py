@@ -21,28 +21,37 @@ gsheets_client = gspread.authorize(creds)
 # --- Funciones ---
 def get_historial_sheet(phone_number):
     try:
+        print(f"🔍 Buscando hoja de historial para número: {phone_number}")
         clientes_sheet = gsheets_client.open("Clientes").sheet1
         rows = clientes_sheet.get_all_records()
+        print(f"📄 Total de filas leídas en hoja 'Clientes': {len(rows)}")
+
         for row in rows:
-            numero_hoja = str(row.get("Número", "")).strip()
-            print(f"📞 Comparando número: hoja='{numero_hoja}' vs recibido='{phone_number}'")
-            if numero_hoja == phone_number:
-                print(f"✅ Coincidencia encontrada: {row}")
-                url = row.get("URL de hoja")
+            numero = str(row.get("Número", "")).strip()
+            url = row.get("URL de hoja", "").strip()
+            print(f"🔎 Revisando fila: número={numero}, url={url}")
+
+            if numero == phone_number:
+                print(f"✅ Número {phone_number} encontrado en hoja de clientes.")
                 if url:
-                    book = gsheets_client.open_by_url(url)
                     try:
-                        historial = book.worksheet("Historial de movimientos")
-                        print("✅ Hoja 'Historial de movimientos' encontrada.")
-                        return historial
+                        libro = gsheets_client.open_by_url(url)
+                        hoja = libro.worksheet("Historial de movimientos")
+                        print(f"📘 Hoja 'Historial de movimientos' accedida correctamente.")
+                        return hoja
                     except Exception as e:
-                        print(f"❌ Error al abrir la hoja 'Historial de movimientos': {e}")
+                        print(f"❌ No se pudo acceder a la hoja 'Historial de movimientos': {e}")
                         return None
-        print(f"⚠️ No se encontró el número {phone_number} en la hoja Clientes")
+                else:
+                    print("⚠️ No se encontró URL para este número.")
+                    return None
+
+        print("⚠️ Número no encontrado en la hoja de clientes.")
         return None
     except Exception as e:
-        print(f"❌ Error al acceder a historial: {e}")
+        print(f"❌ Error general en get_historial_sheet: {e}")
         return None
+
 
 def analizar_datos(historial):
     data = historial.get_all_values()[1:]  # Ignorar encabezado
