@@ -24,12 +24,14 @@ def get_historial_sheet(phone_number):
         clientes_sheet = gsheets_client.open("Clientes").sheet1
         rows = clientes_sheet.get_all_records()
         for row in rows:
+            print(f"🔎 Revisando número: {row.get('Número')}")
             if str(row.get("Número", "")).strip() == phone_number:
                 print(f"✅ Coincidencia encontrada: {row}")
                 url = row.get("URL de hoja")
                 if url:
                     book = gsheets_client.open_by_url(url)
                     return book.worksheet("Historial de movimientos")
+        print(f"⚠️ No se encontró el número {phone_number} en la hoja Clientes")
         return None
     except Exception as e:
         print(f"❌ Error al acceder a historial: {e}")
@@ -88,15 +90,18 @@ def subir_pdf_drive(filepath, filename):
     return f"https://drive.google.com/uc?id={file_id}&export=download"
 
 def generar_reporte_pdf(phone_number):
+    print(f"📊 Generando reporte para el número: {phone_number}")
     hoja = get_historial_sheet(phone_number)
     if not hoja:
         print("⚠️ No se encontró la hoja de historial.")
         return None
 
     fecha_max, mas_vendido, menos_vendido = analizar_datos(hoja)
+    print(f"📈 Datos: {fecha_max}, {mas_vendido}, {menos_vendido}")
     filename = f"reporte_{phone_number}.pdf"
     filepath = os.path.join("/tmp", filename)
     generar_pdf(fecha_max, mas_vendido, menos_vendido, filepath)
 
     url_pdf = subir_pdf_drive(filepath, filename)
+    print(f"✅ PDF subido a: {url_pdf}")
     return url_pdf
