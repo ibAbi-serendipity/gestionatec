@@ -25,6 +25,7 @@ def get_historial_sheet(phone_number):
         rows = clientes_sheet.get_all_records()
         for row in rows:
             if str(row.get("Número", "")).strip() == phone_number:
+                print(f"✅ Coincidencia encontrada: {row}")
                 url = row.get("URL de hoja")
                 if url:
                     book = gsheets_client.open_by_url(url)
@@ -89,6 +90,7 @@ def subir_pdf_drive(filepath, filename):
 def generar_reporte_pdf(phone_number):
     hoja = get_historial_sheet(phone_number)
     if not hoja:
+        print("⚠️ No se encontró la hoja de historial.")
         return None
 
     fecha_max, mas_vendido, menos_vendido = analizar_datos(hoja)

@@ -594,10 +594,11 @@ def whatsapp_bot():
     elif incoming_msg == "8":
         msg.body("📊 Generando tu reporte, por favor espera unos segundos...")
         try:
-            filepath = generar_reporte_pdf(phone_number)
-            if filepath:
-                msg.media(filepath)
+            url_pdf = generar_reporte_pdf(phone_number)
+            if url_pdf:
                 msg.body("✅ Aquí está tu reporte en PDF.")
+                msg.media(url_pdf)
+                msg.body("📲 Escribe *menu* para regresar al menú principal.")
             else:
                 msg.body("❌ No se pudo generar el reporte. Asegúrate de tener una hoja de historial de movimientos.")
         except Exception as e:
