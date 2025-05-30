@@ -26,33 +26,29 @@ def get_historial_sheet(phone_number):
         logging.info(f"🔍 Buscando hoja de historial para número: {phone_number}")
         clientes_sheet = gsheets_client.open("Clientes").sheet1
         rows = clientes_sheet.get_all_records()
-        logging.info(f"📄 Total de filas leídas en hoja 'Clientes': {len(rows)}")
 
         for row in rows:
             numero = str(row.get("Número", "")).strip()
             url = row.get("URL de hoja", "").strip()
-            logging.info(f"🔎 Revisando fila: número={numero}, url={url}")
 
             if numero == phone_number:
-                logging.info(f"✅ Número {phone_number} encontrado en hoja de clientes.")
-                if url:
-                    try:
-                        logging.info(f"🌐 Intentando abrir hoja con URL: {url}")
-                        libro = gsheets_client.open_by_url(url)
-                        hoja = libro.worksheet("Historial de movimientos")
-                        logging.info(f"📘 Hoja 'Historial de movimientos' accedida correctamente.")
-                        return hoja
-                    except WorksheetNotFound:
-                        logging.error("❌ La hoja 'Historial de movimientos' no existe en el archivo.")
-                        return None
-                else:
-                    logging.info("⚠️ No se encontró URL para este número.")
+                logging.info(f"✅ Cliente encontrado. URL: {url}")
+                try:
+                    book = gsheets_client.open_by_url(url)
+                    hoja = book.worksheet("Historial de movimientos")
+                    logging.info("✅ Hoja 'Historial de movimientos' encontrada.")
+                    return hoja
+                except gspread.exceptions.WorksheetNotFound:
+                    logging.error("❌ La hoja 'Historial de movimientos' no existe.")
+                    return None
+                except Exception as e:
+                    logging.error(f"❌ Error al abrir hoja del cliente: {e}")
                     return None
 
-        logging.info("⚠️ Número no encontrado en la hoja de clientes.")
+        logging.warning("⚠️ Número no encontrado en la hoja de clientes.")
         return None
     except Exception as e:
-        logging.info(f"❌ Error general en get_historial_sheet: {e}")
+        logging.error(f"❌ Error general en get_historial_sheet: {e}")
         return None
 
 
