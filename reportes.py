@@ -36,6 +36,7 @@ def get_historial_sheet(phone_number):
                 logging.info(f"✅ Número {phone_number} encontrado en hoja de clientes.")
                 if url:
                     try:
+                        logging.info(f"🌐 Intentando abrir hoja con URL: {url}")
                         libro = gsheets_client.open_by_url(url)
                         hoja = libro.worksheet("Historial de movimientos")
                         logging.info(f"📘 Hoja 'Historial de movimientos' accedida correctamente.")
