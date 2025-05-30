@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.service_account import Credentials
 import gspread
+import logging
 
 # --- Configuración Google API ---
 SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets.readonly']
@@ -21,35 +22,35 @@ gsheets_client = gspread.authorize(creds)
 # --- Funciones ---
 def get_historial_sheet(phone_number):
     try:
-        print(f"🔍 Buscando hoja de historial para número: {phone_number}")
+        logging.info(f"🔍 Buscando hoja de historial para número: {phone_number}")
         clientes_sheet = gsheets_client.open("Clientes").sheet1
         rows = clientes_sheet.get_all_records()
-        print(f"📄 Total de filas leídas en hoja 'Clientes': {len(rows)}")
+        logging.info(f"📄 Total de filas leídas en hoja 'Clientes': {len(rows)}")
 
         for row in rows:
             numero = str(row.get("Número", "")).strip()
             url = row.get("URL de hoja", "").strip()
-            print(f"🔎 Revisando fila: número={numero}, url={url}")
+            logging.info(f"🔎 Revisando fila: número={numero}, url={url}")
 
             if numero == phone_number:
-                print(f"✅ Número {phone_number} encontrado en hoja de clientes.")
+                logging.info(f"✅ Número {phone_number} encontrado en hoja de clientes.")
                 if url:
                     try:
                         libro = gsheets_client.open_by_url(url)
                         hoja = libro.worksheet("Historial de movimientos")
-                        print(f"📘 Hoja 'Historial de movimientos' accedida correctamente.")
+                        logging.info(f"📘 Hoja 'Historial de movimientos' accedida correctamente.")
                         return hoja
                     except Exception as e:
-                        print(f"❌ No se pudo acceder a la hoja 'Historial de movimientos': {e}")
+                        logging.info(f"❌ No se pudo acceder a la hoja 'Historial de movimientos': {e}")
                         return None
                 else:
-                    print("⚠️ No se encontró URL para este número.")
+                    logging.info("⚠️ No se encontró URL para este número.")
                     return None
 
-        print("⚠️ Número no encontrado en la hoja de clientes.")
+        logging.info("⚠️ Número no encontrado en la hoja de clientes.")
         return None
     except Exception as e:
-        print(f"❌ Error general en get_historial_sheet: {e}")
+        logging.info(f"❌ Error general en get_historial_sheet: {e}")
         return None
 
 
