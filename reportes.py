@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.service_account import Credentials
 import gspread
+from gspread.exceptions import WorksheetNotFound
 import logging
 
 # --- Configuración Google API ---
@@ -41,8 +42,8 @@ def get_historial_sheet(phone_number):
                         hoja = libro.worksheet("Historial de movimientos")
                         logging.info(f"📘 Hoja 'Historial de movimientos' accedida correctamente.")
                         return hoja
-                    except Exception as e:
-                        logging.info(f"❌ No se pudo acceder a la hoja 'Historial de movimientos': {e}")
+                    except WorksheetNotFound:
+                        logging.error("❌ La hoja 'Historial de movimientos' no existe en el archivo.")
                         return None
                 else:
                     logging.info("⚠️ No se encontró URL para este número.")
