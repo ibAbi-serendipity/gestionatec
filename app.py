@@ -4,7 +4,6 @@ from datetime import datetime
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name, get_historial_sheet_for_number  # Importamos la función para obtener los productos
-from reportes import generar_reporte_pdf  # Importamos la función para generar el reporte PDF
 
 app = Flask(__name__)
 user_states = {}  # Aquí definimos el diccionario para guardar el estado de los usuarios
@@ -592,20 +591,43 @@ def whatsapp_bot():
         return str(resp)
     # Opción 8: Reporte
     elif incoming_msg == "8":
+        msg.body("📊 Generando tu reporte, por favor espera unos segundos...")
         try:
-            msg.body("📊 Generando tu reporte, por favor espera unos segundos...")
-            url_pdf = generar_reporte_pdf(phone_number)
-            if url_pdf:
-                msg.media(url_pdf)
-                msg.body(
-                    "✅ Aquí está tu reporte en PDF.\n"
-                    "📲 Escribe *menu* para regresar al menú principal."
-                )
-            else:
-                msg.body("❌ No se pudo generar el reporte. Asegúrate de tener una hoja de historial de movimientos.")
+            hoja = get_historial_sheet_for_number(phone_number)
+            if not hoja:
+                msg.body("❌ No se encontró la hoja de historial de movimientos.")
+                return str(resp)
+
+            datos = hoja.get_all_values()[1:]  # Omitimos encabezado
+            fechas = {}
+            productos = {}
+
+            for row in datos:
+                fecha, _, nombre, tipo, cantidad, _ = row
+                if tipo.lower() == "salida":
+                    cantidad = int(cantidad)
+                    fechas[fecha] = fechas.get(fecha, 0) + cantidad
+                    productos[nombre] = productos.get(nombre, 0) + cantidad
+
+            if not productos:
+                msg.body("⚠️ No hay registros de salida para generar un reporte.")
+                return str(resp)
+
+            fecha_mas_ventas = max(fechas.items(), key=lambda x: x[1])
+            mas_vendido = max(productos.items(), key=lambda x: x[1])
+            menos_vendido = min(productos.items(), key=lambda x: x[1])
+
+            resumen = (
+                f"📈 *Resumen de ventas:*\n"
+                f"📅 Fecha con más ventas: {fecha_mas_ventas[0]} ({fecha_mas_ventas[1]} unidades)\n"
+                f"🏆 Producto más vendido: {mas_vendido[0]} ({mas_vendido[1]} unidades)\n"
+                f"📉 Producto menos vendido: {menos_vendido[0]} ({menos_vendido[1]} unidades)\n\n"
+                "📲 Escribe *menu* para regresar al menú principal."
+            )
+            msg.body(resumen)
         except Exception as e:
-            logging.error(f"Error al generar el reporte: {e}")
-            msg.body("❌ Ocurrió un error al generar el reporte. Intenta nuevamente.")
+            logging.error(f"❌ Error al generar reporte: {e}")
+            msg.body("❌ Ocurrió un error al generar el reporte.")
         return str(resp)
     # Opción 9: Revisar stock mínimo / vencimiento
     elif incoming_msg == "9":
