@@ -642,14 +642,10 @@ def whatsapp_bot():
             resumen_top3_menos = "; ".join([f"{n} ({d[1]}, {d[2]}, {d[0]}u)" for n, d in top3_menos])
 
             resumen = (
-                f"📈 *Reporte de ventas:*
-    "
-                f"📅 Fecha(s) con más ventas: {', '.join(fechas_top)}
-    "
-                f"🥇 Top 3 más vendidos: {resumen_top3_mas}
-    "
-                f"🥉 Top 3 menos vendidos: {resumen_top3_menos}
-    "
+                f"📈 *Reporte de ventas:*\n"
+                f"📅 Fecha(s) con más ventas: {', '.join(fechas_top)}\n"
+                f"🥇 Top 3 más vendidos: {resumen_top3_mas}\n"
+                f"🥉 Top 3 menos vendidos: {resumen_top3_menos}\n"
                 "📲 Escribe *menu* para regresar al menú."
             )
             msg.body(resumen)
