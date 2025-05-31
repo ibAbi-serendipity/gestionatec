@@ -598,37 +598,67 @@ def whatsapp_bot():
                 msg.body("❌ No se encontró la hoja de historial de movimientos.")
                 return str(resp)
 
-            datos = hoja.get_all_values()[1:]  # Omitimos encabezado
-            fechas = {}
-            productos = {}
-
-            for row in datos:
-                fecha, _, nombre, tipo, cantidad, _ = row
-                if tipo.lower() == "salida":
-                    cantidad = int(cantidad)
-                    fechas[fecha] = fechas.get(fecha, 0) + cantidad
-                    productos[nombre] = productos.get(nombre, 0) + cantidad
-
-            if not productos:
-                msg.body("⚠️ No hay registros de salida para generar un reporte.")
+            datos = hoja.get_all_values()[1:]
+            if not datos:
+                msg.body("⚠️ No hay registros en el historial para generar un reporte.")
                 return str(resp)
 
-            fecha_mas_ventas = max(fechas.items(), key=lambda x: x[1])
-            mas_vendido = max(productos.items(), key=lambda x: x[1])
-            menos_vendido = min(productos.items(), key=lambda x: x[1])
+            fechas = {}
+            productos = {}  # nombre: [cantidad_total, código, marca]
+
+            hoja_productos = get_inventory_sheet_for_number(phone_number)
+            datos_productos = hoja_productos.get_all_values()[1:]
+
+            for row in datos:
+                fecha, codigo, nombre, tipo, cantidad, _ = row
+                cantidad = int(cantidad)
+                if tipo.lower() == "salida":
+                    fechas[fecha] = fechas.get(fecha, 0) + cantidad
+
+                    if nombre not in productos:
+                        marca = ""
+                        for p in datos_productos:
+                            if p[0] == codigo:
+                                marca = p[2]
+                                break
+                        productos[nombre] = [cantidad, codigo, marca]
+                    else:
+                        productos[nombre][0] += cantidad
+
+            if not productos:
+                msg.body("⚠️ No hay suficientes salidas para generar un reporte.")
+                return str(resp)
+
+            # Fechas con más ventas
+            max_ventas = max(fechas.values())
+            fechas_top = [f"{f} ({v})" for f, v in fechas.items() if v == max_ventas]
+
+            # Top 3 más vendidos
+            top3_mas = sorted(productos.items(), key=lambda x: x[1][0], reverse=True)[:3]
+            resumen_top3_mas = "; ".join([f"{n} ({d[1]}, {d[2]}, {d[0]}u)" for n, d in top3_mas])
+
+            # Top 3 menos vendidos
+            top3_menos = sorted(productos.items(), key=lambda x: x[1][0])[:3]
+            resumen_top3_menos = "; ".join([f"{n} ({d[1]}, {d[2]}, {d[0]}u)" for n, d in top3_menos])
 
             resumen = (
-                f"📈 *Resumen de ventas:*\n"
-                f"📅 Fecha con más ventas: {fecha_mas_ventas[0]} ({fecha_mas_ventas[1]} unidades)\n"
-                f"🏆 Producto más vendido: {mas_vendido[0]} ({mas_vendido[1]} unidades)\n"
-                f"📉 Producto menos vendido: {menos_vendido[0]} ({menos_vendido[1]} unidades)\n\n"
-                "📲 Escribe *menu* para regresar al menú principal."
+                f"📈 *Reporte de ventas:*
+    "
+                f"📅 Fecha(s) con más ventas: {', '.join(fechas_top)}
+    "
+                f"🥇 Top 3 más vendidos: {resumen_top3_mas}
+    "
+                f"🥉 Top 3 menos vendidos: {resumen_top3_menos}
+    "
+                "📲 Escribe *menu* para regresar al menú."
             )
             msg.body(resumen)
+
         except Exception as e:
             logging.error(f"❌ Error al generar reporte: {e}")
             msg.body("❌ Ocurrió un error al generar el reporte.")
         return str(resp)
+
     # Opción 9: Revisar stock mínimo / vencimiento
     elif incoming_msg == "9":
         hoja = get_inventory_sheet_for_number(phone_number)
