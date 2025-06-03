@@ -591,7 +591,6 @@ def whatsapp_bot():
         return str(resp)
     # Opción 8: Reporte
     elif incoming_msg == "8":
-        msg.body("📊 Generando tu reporte, por favor espera unos segundos...")
         try:
             hoja = get_historial_sheet_for_number(phone_number)
             if not hoja:
@@ -639,7 +638,7 @@ def whatsapp_bot():
 
             # Top 3 menos vendidos
             top3_menos = sorted(productos.items(), key=lambda x: x[1][0])[:3]
-            resumen_top3_menos = "; ".join([f"{n} ({d[1]}, {d[2]}, {d[0]}u)" for n, d in top3_menos])
+            resumen_top3_menos = "; ".join([f"{n} ({d[1]}, {d[2]}, {d[0]}u)\n" for n, d in top3_menos])
 
             resumen = (
                 f"📈 *Reporte de ventas:*\n"
