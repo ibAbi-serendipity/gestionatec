@@ -91,19 +91,19 @@ def whatsapp_bot():
             estado["categoria"] = categorias[opcion]
             estado["step"] = "esperando_datos"
             if estado.get("perecible"):
-                msg.body("📝 Ingresa los datos del producto en este formato:\n```Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Lugar```")
+                msg.body("📝 Ingresa los datos del producto en este formato:\n```Artículo, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Ubicación referencial```")
             else:
-                msg.body("📝 Ingresa los datos del producto en este formato:\n```Nombre, Marca, Costo, Cantidad, Precio, Stock Mínimo, Lugar``` (sin fecha)")
+                msg.body("📝 Ingresa los datos del producto en este formato:\n```Artículo, Marca, Costo, Cantidad, Precio, Stock Mínimo, Ubicación referencial``` (sin fecha)")
             return str(resp)
 
         elif estado.get("step") == "esperando_datos":
             partes = [x.strip() for x in incoming_msg.split(",")]
 
             if estado.get("perecible") and len(partes) != 8:
-                msg.body("❌ Formato incorrecto. Debe ser:\n```Nombre, Marca, Fecha, Costo, Cantidad, Precio, Stock Mínimo, Lugar```\n📌 Si deseas cancelar, escribe *menu*.")
+                msg.body("❌ Formato incorrecto. Debe ser:\n```Artículo, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Ubicación referencial```\n📌 Si deseas cancelar, escribe *menu*.")
                 return str(resp)
             elif not estado.get("perecible") and len(partes) != 7:
-                msg.body("❌ Formato incorrecto. Debe ser:\n```Nombre, Marca, Costo, Cantidad, Precio, Stock Mínimo, Lugar```\n📌 Si deseas cancelar, escribe *menu*.")
+                msg.body("❌ Formato incorrecto. Debe ser:\n```Artículo, Marca, Costo, Cantidad, Precio, Stock Mínimo, Ubicación referencial```\n📌 Si deseas cancelar, escribe *menu*.")
                 return str(resp)
 
             estado["nombre"] = partes[0]
@@ -124,7 +124,7 @@ def whatsapp_bot():
                 estado["lugar"] = partes[6]
 
             estado["step"] = "esperando_empaque"
-            msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre)")
+            msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre / tableta)")
             return str(resp)
   
         elif estado.get("step") == "esperando_empaque":
@@ -239,7 +239,7 @@ def whatsapp_bot():
                 user_states.pop(phone_number)
                 msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
         
-        # Paso 4: Actualizar producto
+        # OPCION C: Actualizar producto
         elif estado.get("step") == "esperando_codigo_actualizar":
             codigo = incoming_msg.strip().upper()
             hoja = get_inventory_sheet_for_number(phone_number)
@@ -261,15 +261,14 @@ def whatsapp_bot():
                 }
                 msg.body(
                     f"🔍 Producto encontrado: {producto[1]} - {producto[2]}\n"
-                    "¿Qué campo deseas modificar? (fecha de caducidad / costo / precio / stock mínimo)"
+                    "¿Qué campo deseas modificar? (Fecha de vencimiento / Costo / Precio / Stock mínimo / Ubicación referencial)\n"
                 )
-            
-            if not encontrado:
+            else:
                 msg.body("❌ Producto no encontrado. ¿Deseas ingresar otro código? (sí / no)")
                 user_states[phone_number] = {"step": "confirmar_codigo_nuevamente_4"}
-                return str(resp)
+            return str(resp)
         
-        elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_codigo_nuevamente_4":
+        elif estado.get("step") == "confirmar_codigo_nuevamente_4":
             if incoming_msg.lower() in ["si", "sí"]:
                 user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
                 msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
@@ -278,50 +277,88 @@ def whatsapp_bot():
                 msg.body("✅ Volviendo al menú principal. Envía 'menu' para ver opciones.")
             return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_campo_a_modificar":
+        elif estado.get("step") == "esperando_campo_a_modificar":
             campo = incoming_msg.strip().lower()
             campos_validos = {
-                "fecha": 3,
+                "fecha de vencimiento": 3,
                 "costo": 4,
                 "precio": 6,
                 "stock mínimo": 7
+                "ubicación referencial": 8
             }
-
-            user_states[phone_number]["campo"] = campo
-            user_states[phone_number]["columna"] = campos_validos[campo]
-            user_states[phone_number]["step"] = "esperando_nuevo_valor"
-            msg.body(f"✏️ Ingresa el nuevo valor para '{campo}':")
-            return str(resp)
             if campo not in campos_validos:
-                msg.body("❌ Campo no válido. Elige entre: fecha / costo / precio / stock mínimo")
-                return str(resp)
+                msg.body("❌ Campo no válido. Elige entre: fecha de vencimiento / costo / precio / stock mínimo / ubicación referencial.\n")
+            else:
+                estado["campo"] = campo
+                estado["columna"] = campos_validos[campo]
+                estado["step"] = "esperando_nuevo_valor"
+                msg.body(f"✏️ Ingresa el nuevo valor para '{campo}':")
+            return str(resp)
     
-        elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_nuevo_valor":
+        elif estado.get("step") == "esperando_nuevo_valor":
             nuevo_valor = incoming_msg.strip()
             hoja = get_inventory_sheet_for_number(phone_number)
-            fila = user_states[phone_number]["fila"]
-            columna = user_states[phone_number]["columna"]
-            campo = user_states[phone_number]["campo"]
+            fila = estado["fila"]
+            columna = estado["columna"]
+            campo = estado["campo"]
 
-            try:
+             try:
+                if campo == "costo":
+                    nuevo_costo = float(nuevo_valor)
+                    precio_actual = float(estado["producto"][6])
+                    if nuevo_costo >= precio_actual:
+                        estado["nuevo_costo"] = nuevo_costo
+                        estado["step"] = "confirmar_costo_mayor"
+                        msg.body(
+                            f"- Costo actual: *S/ {costo_actual:.2f}*\n"
+                            f"⚠️ Estás intentando actualizar el *costo* a *S/ {nuevo_costo:.2f}*, "
+                            f"pero el *precio actual* es *S/ {precio_actual:.2f}*.\n"
+                            "🚨 El nuevo costo es mayor o igual al precio de venta.Esto significa que estarías vendiendo con pérdida.\n"
+                            "¿Deseas continuar con la actualización del costo? (sí / no)"
+                        )
+                        return str(resp)
+
                 hoja.update_cell(fila, columna + 1, nuevo_valor)
-                msg.body(f"✅ El campo '{campo}' fue actualizado correctamente.\n"
-                        "¿Deseas actualizar otro campo de este producto? (sí / no)")
-                user_states[phone_number]["step"] = "confirmar_otro_campo"
+                msg.body(f"✅ El campo '{campo}' fue actualizado correctamente.\n¿Deseas actualizar otro campo de este producto? (sí / no)")
+                estado["step"] = "confirmar_otro_campo"
             except Exception as e:
                 msg.body("❌ Error al actualizar el valor. Intenta nuevamente.")
                 logging.error(f"Error al actualizar celda: {e}")
             return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "confirmar_otro_campo":
+        elif estado.get("step") == "confirmar_costo_mayor":
+            if incoming_msg.lower() in ["sí", "si"]:
+                hoja = get_inventory_sheet_for_number(phone_number)
+                fila = estado["fila"]
+                hoja.update_cell(fila, 5, str(estado["nuevo_costo"]))
+                msg.body("✅ Costo actualizado. ¿Deseas modificar también el precio? (sí / no)")
+                estado["step"] = "confirmar_modificar_precio"
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Actualización cancelada. Envía 'menu' para ver opciones.")
+            return str(resp)
+
+        elif estado.get("step") == "confirmar_modificar_precio":
+            if incoming_msg.lower() in ["sí", "si"]:
+                estado["campo"] = "precio"
+                estado["columna"] = 6
+                estado["step"] = "esperando_nuevo_valor"
+                msg.body("✏️ Ingresa el nuevo valor para 'precio':")
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Modificación finalizada. Envía 'menu' para ver opciones.")
+            return str(resp)
+
+        elif estado.get("step") == "confirmar_otro_campo":
             if incoming_msg.lower() in ["si", "sí"]:
-                user_states[phone_number]["step"] = "esperando_campo_a_modificar"
-                msg.body("🔁 ¿Qué otro campo deseas modificar? (fecha / costo / precio / stock mínimo)")
+                estado["step"] = "esperando_campo_a_modificar"
+                msg.body("🔁 ¿Qué otro campo deseas modificar? (Fecha de vencimiento / costo / precio / stock mínimo / Ubicación referencial)")
             else:
                 user_states.pop(phone_number, None)
                 msg.body("✅ Actualización finalizada. Envía 'menu' para ver opciones.")
             return str(resp)
-        # Paso 5: Eliminar producto
+
+        # OPCION D: Eliminar producto
         elif phone_number in user_states and user_states[phone_number].get("step") == "esperando_codigo_eliminar":
             hoja = get_inventory_sheet_for_number(phone_number)
             productos = hoja.get_all_values()
