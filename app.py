@@ -127,7 +127,7 @@ def whatsapp_bot():
             msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre)")
             return str(resp)
   
-       elif estado.get("step") == "esperando_empaque":
+        elif estado.get("step") == "esperando_empaque":
             empaque = incoming_msg.strip().lower()
             if not empaque:
                 msg.body("❌ Tipo de empaque no válido. Intenta nuevamente.")
