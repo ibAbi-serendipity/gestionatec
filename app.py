@@ -48,9 +48,8 @@ def whatsapp_bot():
                 msg.body("🔍 Escribe el código del producto que deseas buscar:")
                 return str(resp)
             elif opcion == "b":
-                user_states[phone_number] = {"step": "esperando_datos"}
-                msg.body("Por favor envía los datos del producto en este formato:\n"
-                        "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Lugar de almacenamiento\n")
+                user_states[phone_number] = {"step": "preguntar_perecible"}
+                msg.body("🧾 ¿El producto es perecible? (sí / no)")
                 return str(resp)
             elif opcion == "c":
                 user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
@@ -64,104 +63,137 @@ def whatsapp_bot():
                 msg.body("❌ Opción inválida. Escribe A, B, C o D o escribe 'menu' para regresar.")
                 return str(resp)
 
-        # Paso 1: Esperar datos
+        # OPCION B: Agregar producto
+        elif estado.get("step") == "preguntar_perecible":
+            respuesta = incoming_msg.lower()
+            if respuesta in ["sí", "si"]:
+                estado["perecible"] = True
+                estado["step"] = "elegir_categoria"
+                msg.body("📦 Elige la categoría del producto:\nA. Comestibles\nB. Medicamentos\nC. Higiene personal\nD. Limpieza")
+            elif respuesta == "no":
+                estado["perecible"] = False
+                estado["step"] = "elegir_categoria"
+                msg.body("🛠️ Elige la categoría del producto:\nE. Herramientas\nF. Papelería\nG. Electrónicos\nH. Ropa")
+            else:
+                msg.body("❌ Respuesta no válida. Escribe 'sí' o 'no'.")
+            return str(resp)
+
+        elif estado.get("step") == "elegir_categoria":
+            categorias = {
+                "a": "1", "b": "2", "c": "3", "d": "4",  # Perecibles
+                "e": "5", "f": "6", "g": "7", "h": "8"   # No perecibles
+            }
+            opcion = incoming_msg.lower()
+            if opcion not in categorias:
+                msg.body("❌ Opción inválida. Elige una letra válida (A-H).")
+                return str(resp)
+
+            estado["categoria"] = categorias[opcion]
+            estado["step"] = "esperando_datos"
+            if estado.get("perecible"):
+                msg.body("📝 Ingresa los datos del producto en este formato:\n```Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Lugar```")
+            else:
+                msg.body("📝 Ingresa los datos del producto en este formato:\n```Nombre, Marca, Costo, Cantidad, Precio, Stock Mínimo, Lugar``` (sin fecha)")
+            return str(resp)
+
         elif estado.get("step") == "esperando_datos":
             partes = [x.strip() for x in incoming_msg.split(",")]
-            if len(partes) != 8:
-                msg.body("❌ Formato incorrecto. Asegúrate de enviar: Nombre, Marca, Fecha, Costo, Cantidad, Precio, Stock Mínimo")
-            else:
-                estado.update({
-                    "nombre": partes[0],
-                    "marca": partes[1],
-                    "fecha": partes[2],
-                    "costo": partes[3],
-                    "cantidad": partes[4],
-                    "precio": partes[5],
-                    "stock_minimo": partes[6],
-                    "lugar": partes[7],
-                    "step": "esperando_categoria"
-                })
-                msg.body("📦 ¿Cuál es la categoría del producto? (perecible / no perecible / limpieza / herramienta o material)")
-            
-        # Paso 2: Esperar categoría
-        elif estado.get("step") == "esperando_categoria":
-            categorias = {
-                "perecible": "1",
-                "no perecible": "2",
-                "limpieza": "3",
-                "herramienta o material": "4"
-            }
-            cat = incoming_msg.lower()
-            if cat not in categorias:
-                msg.body("❌ Categoría no válida. Elige: perecible / no perecible / limpieza / herramienta o material")
-            else:
-                estado["categoria"] = categorias[cat]
-                estado["step"] = "esperando_empaque"
-                msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre)")
 
-        # Paso 3: Esperar empaque y guardar
-        elif estado.get("step")== "esperando_empaque":
+            if estado.get("perecible") and len(partes) != 8:
+                msg.body("❌ Formato incorrecto. Debe ser:\n```Nombre, Marca, Fecha, Costo, Cantidad, Precio, Stock Mínimo, Lugar```\n📌 Si deseas cancelar, escribe *menu*.")
+                return str(resp)
+            elif not estado.get("perecible") and len(partes) != 7:
+                msg.body("❌ Formato incorrecto. Debe ser:\n```Nombre, Marca, Costo, Cantidad, Precio, Stock Mínimo, Lugar```\n📌 Si deseas cancelar, escribe *menu*.")
+                return str(resp)
+
+            estado["nombre"] = partes[0]
+            estado["marca"] = partes[1]
+            if estado.get("perecible"):
+                estado["fecha"] = partes[2]
+                estado["costo"] = partes[3]
+                estado["cantidad"] = partes[4]
+                estado["precio"] = partes[5]
+                estado["stock_minimo"] = partes[6]
+                estado["lugar"] = partes[7]
+            else:
+                estado["fecha"] = ""  # vacío
+                estado["costo"] = partes[2]
+                estado["cantidad"] = partes[3]
+                estado["precio"] = partes[4]
+                estado["stock_minimo"] = partes[5]
+                estado["lugar"] = partes[6]
+
+            estado["step"] = "esperando_empaque"
+            msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre)")
+            return str(resp)
+  
+       elif estado.get("step") == "esperando_empaque":
             empaque = incoming_msg.strip().lower()
             if not empaque:
-                msg.body("❌ Tipo de empaque no válido.")
-            else:
-                estado["empaque"] = empaque
-                hoja = get_inventory_sheet_for_number(phone_number)
-                if not hoja:
-                    msg.body("❌ No se pudo acceder a tu hoja de inventario.")
-                    return str(resp)
-
-                # Generar prefijo del código
-                categoria_num = estado["categoria"]
-                marca_inicial = estado["marca"][0].upper()
-                empaque_inicial = empaque[0].upper()
-                prefijo_codigo = f"{categoria_num}{marca_inicial}{empaque_inicial}"
-
-                # Obtener productos existentes
-                productos = hoja.get_all_values()
-                data = productos[1:] if len(productos) > 1 else []
-
-                # Filtrar y contar correlativos con el mismo prefijo
-                correlativos = []
-                for fila in data:
-                    if len(fila) > 0:
-                        codigo = fila[0]
-                        if codigo.startswith(prefijo_codigo) and len(codigo) >= 4 and codigo[-2:].isdigit():
-                            correlativos.append(int(codigo[-2:]))
-
-                nuevo_num = str(max(correlativos, default=0) + 1).zfill(2)
-                codigo = f"{prefijo_codigo}{nuevo_num}"
-
-                nuevo_producto = [
-                    codigo,
-                    estado["nombre"],
-                    estado["marca"],
-                    estado["fecha"],
-                    estado["costo"],
-                    estado["cantidad"],
-                    estado["precio"],
-                    estado["stock_minimo"],
-                    estado["lugar"], 
-                ]
-                hoja.append_row(nuevo_producto)
-                msg.body(f"✅ Producto '{estado['nombre']}' agregado con código {codigo}.\n"
-                        "¿Deseas registrar otro producto? (sí / no)")
-                estado.clear()
-                estado["step"] = "confirmar_continuar"
+                msg.body("❌ Tipo de empaque no válido. Intenta nuevamente.")
                 return str(resp)
-        
-        # Paso final: Confirmar si desea registrar otro
+
+            estado["empaque"] = empaque
+            hoja = get_inventory_sheet_for_number(phone_number)
+            if not hoja:
+                msg.body("❌ No se pudo acceder a tu hoja de inventario.")
+                return str(resp)
+
+            # Generar prefijo del código
+            categoria_num = estado["categoria"]             # "1"..."8"
+            marca_inicial = estado["marca"][0].upper()      # primera letra de la marca
+            empaque_inicial = empaque[0].upper()            # primera letra del tipo de empaque
+            prefijo_codigo = f"{categoria_num}{marca_inicial}{empaque_inicial}"
+
+            # Obtener productos existentes
+            productos = hoja.get_all_values()
+            data = productos[1:] if len(productos) > 1 else []
+
+            # Buscar correlativo existente
+            correlativos = []
+            for fila in data:
+                if fila and fila[0].startswith(prefijo_codigo) and len(fila[0]) >= 4:
+                    sufijo = fila[0][3:]
+                    if sufijo.isdigit():
+                        correlativos.append(int(sufijo))
+
+            nuevo_num = str(max(correlativos, default=0) + 1).zfill(2)
+            codigo = f"{prefijo_codigo}{nuevo_num}"
+
+            # Crear la nueva fila del producto
+            nuevo_producto = [
+                codigo,
+                estado["nombre"],
+                estado["marca"],
+                estado["fecha"],            
+                estado["costo"],
+                estado["cantidad"],
+                estado["precio"],
+                estado["stock_minimo"],
+                estado["lugar"]
+            ]
+
+            # Agregar a la hoja
+            hoja.append_row(nuevo_producto)
+
+            msg.body(f"✅ Producto '{estado['nombre']}' agregado con código *{codigo}*.\n"
+                    "¿Deseas registrar otro producto? (sí / no)")
+            estado.clear()
+            estado["step"] = "confirmar_continuar"
+            return str(resp)
+
         elif estado.get("step") == "confirmar_continuar":
             if incoming_msg.lower() in ["sí", "si"]:
-                estado["step"] = "esperando_datos"
-                msg.body("Por favor envía los datos del nuevo producto en este formato:\n"
-                         "'Nombre, Marca, Fecha de caducidad (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo'")
+                estado.clear()
+                estado["step"] = "preguntar_perecible"
+                msg.body("🧾 ¿El producto es perecible? (sí / no)")
             elif incoming_msg.lower() == "no":
                 user_states.pop(phone_number)
                 msg.body("📋 Has salido del registro de productos. Escribe 'menu' para ver las opciones.")
             else:
                 msg.body("❓ Respuesta no válida. Escribe 'sí' para registrar otro producto o 'no' para salir.")
 
+        # OPCION A: Filtrar por código
         elif estado.get("step") == "esperando_codigo":
             filtro_codigo = incoming_msg.upper().strip()
             hoja_cliente = get_inventory_sheet_for_number(phone_number)
@@ -206,6 +238,7 @@ def whatsapp_bot():
             else:
                 user_states.pop(phone_number)
                 msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
+        
         # Paso 4: Actualizar producto
         elif estado.get("step") == "esperando_codigo_actualizar":
             codigo = incoming_msg.strip().upper()
