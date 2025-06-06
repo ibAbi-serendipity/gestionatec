@@ -79,17 +79,15 @@ def obtener_productos(hoja):
         data = hoja.get_all_values()[1:]  # Ignora la fila de encabezado
         productos = []
         for row in data:
-            if len(row) >= 9:
+            if len(row) >= 7:
                 producto = {
                     "codigo": row[0],
                     "nombre": row[1],
                     "marca": row[2],
-                    "fecha": row[3],
-                    "costo": row[4],
-                    "cantidad": row[5],
-                    "precio": row[6],
-                    "stock_minimo": row[7],
-                    "lugar": row[8]
+                    "precio": row[3],
+                    "cantidad": row[4],
+                    "stock_minimo": row[5],
+                    "lugar": row[6]
                 }
                 productos.append(producto)
         return productos

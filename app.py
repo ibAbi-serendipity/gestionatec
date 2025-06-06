@@ -91,35 +91,31 @@ def whatsapp_bot():
             estado["categoria"] = categorias[opcion]
             estado["step"] = "esperando_datos"
             if estado.get("perecible"):
-                msg.body("📝 Ingresa los datos del producto en este formato:\n```Artículo, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Ubicación referencial```")
+                msg.body("📝 Ingresa los datos del producto en este formato:\n```Artículo, Marca, Precio, Cantidad, Stock Mínimo, Ubicación referencial```")
             else:
-                msg.body("📝 Ingresa los datos del producto en este formato:\n```Artículo, Marca, Costo, Cantidad, Precio, Stock Mínimo, Ubicación referencial``` (sin fecha)")
+                msg.body("📝 Ingresa los datos del producto en este formato:\n```Artículo, Marca, Precio, Cantidad,  Stock Mínimo, Ubicación referencial```")
             return str(resp)
 
         elif estado.get("step") == "esperando_datos":
             partes = [x.strip() for x in incoming_msg.split(",")]
 
             if estado.get("perecible") and len(partes) != 8:
-                msg.body("❌ Formato incorrecto. Debe ser:\n```Artículo, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Ubicación referencial```\n📌 Si deseas cancelar, escribe *menu*.")
+                msg.body("❌ Formato incorrecto. Debe ser:\n```Artículo, Marca, Precio, Cantidad,  Stock Mínimo, Ubicación referencial```\n📌 Si deseas cancelar, escribe *menu*.")
                 return str(resp)
             elif not estado.get("perecible") and len(partes) != 7:
-                msg.body("❌ Formato incorrecto. Debe ser:\n```Artículo, Marca, Costo, Cantidad, Precio, Stock Mínimo, Ubicación referencial```\n📌 Si deseas cancelar, escribe *menu*.")
+                msg.body("❌ Formato incorrecto. Debe ser:\n```Artículo, Marca, Precio, Cantidad,  Stock Mínimo, Ubicación referencial```\n📌 Si deseas cancelar, escribe *menu*.")
                 return str(resp)
 
             estado["nombre"] = partes[0]
             estado["marca"] = partes[1]
             if estado.get("perecible"):
-                estado["fecha"] = partes[2]
-                estado["costo"] = partes[3]
-                estado["cantidad"] = partes[4]
-                estado["precio"] = partes[5]
-                estado["stock_minimo"] = partes[6]
-                estado["lugar"] = partes[7]
-            else:
-                estado["fecha"] = ""  # vacío
-                estado["costo"] = partes[2]
+                estado["precio"] = partes[2]
                 estado["cantidad"] = partes[3]
+                estado["stock_minimo"] = partes[4]
+                estado["lugar"] = partes[5]
+            else:
                 estado["precio"] = partes[4]
+                estado["cantidad"] = partes[3]
                 estado["stock_minimo"] = partes[5]
                 estado["lugar"] = partes[6]
 
@@ -165,10 +161,8 @@ def whatsapp_bot():
                 codigo,
                 estado["nombre"],
                 estado["marca"],
-                estado["fecha"],            
-                estado["costo"],
-                estado["cantidad"],
                 estado["precio"],
+                estado["cantidad"],
                 estado["stock_minimo"],
                 estado["lugar"]
             ]
@@ -197,10 +191,10 @@ def whatsapp_bot():
         elif estado.get("step") == "esperando_codigo":
             filtro_codigo = incoming_msg.upper().strip()
             hoja_cliente = get_inventory_sheet_for_number(phone_number)
-        
+
             if not hoja_cliente:
                 msg.body("❌ No se encontró tu hoja de productos.")
-                user_states.pop(phone_number)
+                user_states.pop(phone_number, None)
             else:
                 productos = obtener_productos(hoja_cliente)
                 coincidencias = [p for p in productos if p["codigo"].upper().startswith(filtro_codigo)]
@@ -213,12 +207,10 @@ def whatsapp_bot():
                         f"🔎 Detalles del producto con código {p['codigo']}:\n"
                         f"📌 Nombre: {p['nombre']}\n"
                         f"🏷️ Marca: {p['marca']}\n"
-                        f"📅 Fecha de caducidad: {p['fecha']}\n"
-                        f"💰 Costo: S/ {p['costo']}\n"
-                        f"📦 Cantidad: {p['cantidad']}\n"
-                        f"💵 Precio: S/ {p['precio']}\n"
+                        f"📦 Stock total: {p['cantidad']}\n"
+                        f"💵 Precio de venta: S/ {p['precio']}\n"
                         f"📉 Stock mínimo: {p['stock_minimo']}\n"
-                        f"🛒 Ubicación referencial: {p['lugar']}\n\n"
+                        f"🛒 Ubicación: {p['lugar']}\n\n"
                         "¿Deseas consultar otro código? (sí / no)"
                     )
                     msg.body(respuesta)
@@ -228,7 +220,7 @@ def whatsapp_bot():
                         respuesta += f"{i}. {p['nombre']} - {p['marca']}, Stock: {p['cantidad']} (Código: {p['codigo']})\n"
                     respuesta += "\n¿Deseas consultar otro código? (sí / no)"
                     msg.body(respuesta)
-                
+
                 user_states[phone_number] = {"step": "preguntar_otro_codigo"}
 
         elif estado.get("step") == "preguntar_otro_codigo":
@@ -236,7 +228,7 @@ def whatsapp_bot():
                 user_states[phone_number] = {"step": "esperando_codigo"}
                 msg.body("🔍 Escribe el siguiente código que deseas consultar:")
             else:
-                user_states.pop(phone_number)
+                user_states.pop(phone_number, None)
                 msg.body("✅ Consulta finalizada. Escribe 'menu' para ver más opciones.")
         
         # OPCION C: Actualizar producto
@@ -633,21 +625,25 @@ def whatsapp_bot():
         if not hoja_cliente:
             msg.body("❌ No se encontró la hoja de productos para tu número.")
         else:
-            productos = obtener_productos(hoja_cliente)
-            if productos is None:
-                msg.body("⚠️ Hubo un error al leer los productos. Intenta nuevamente.")
-            elif not productos:
+            productos = hoja_cliente.get_all_values()
+            if not productos or len(productos) <= 1:
                 msg.body("📭 No hay productos registrados.")
             else:
                 respuesta = "📦 *Productos en inventario:*\n"
-                for i, p in enumerate(productos, start=1):
+                for i, row in enumerate(productos[1:], start=1):  # Saltamos encabezado
+                    codigo = row[0]
+                    nombre = row[1]
+                    marca = row[2]
+                    precio = row[3]
+                    stock = row[4]
                     respuesta += (
-                        f"{i}. *{p['nombre']}* ({p['marca']}) - {p['codigo']}\n"
-                        f"   🗓️ Vence: {p['fecha']} | 📦 Stock: {p['cantidad']} | 💰 S/ {p['precio']}\n"
+                        f"{i}. *{nombre}* ({marca}) - {codigo}\n"
+                        f"   📦 Stock: {stock} | 💰 S/ {precio}\n"
                     )
                 msg.body(respuesta)
-            return str(resp)
-    # Opción 2: Filtrar por código
+        return str(resp)
+
+    # Opción 2: Gestionar productos
     elif incoming_msg == "2":
         user_states[phone_number] = {"step": "submenu_gestion"}
         msg.body(
