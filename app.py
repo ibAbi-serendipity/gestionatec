@@ -218,7 +218,7 @@ def whatsapp_bot():
                         f"📦 Cantidad: {p['cantidad']}\n"
                         f"💵 Precio: S/ {p['precio']}\n"
                         f"📉 Stock mínimo: {p['stock_minimo']}\n"
-                        f"🛒 Lugar de venta: {p['lugar']}\n\n"
+                        f"🛒 Ubicación referencial: {p['lugar']}\n\n"
                         "¿Deseas consultar otro código? (sí / no)"
                     )
                     msg.body(respuesta)
@@ -283,7 +283,7 @@ def whatsapp_bot():
                 "fecha de vencimiento": 3,
                 "costo": 4,
                 "precio": 6,
-                "stock mínimo": 7
+                "stock mínimo": 7,
                 "ubicación referencial": 8
             }
             if campo not in campos_validos:
