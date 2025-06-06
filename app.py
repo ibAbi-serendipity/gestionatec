@@ -302,7 +302,7 @@ def whatsapp_bot():
             columna = estado["columna"]
             campo = estado["campo"]
 
-             try:
+            try:
                 if campo == "costo":
                     nuevo_costo = float(nuevo_valor)
                     precio_actual = float(estado["producto"][6])
