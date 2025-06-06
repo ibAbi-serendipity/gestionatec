@@ -29,23 +29,43 @@ def whatsapp_bot():
         menu = (
             f"👋 ¡Hola {nombre_cliente}, soy Kardex!\n"
             "Elige una opción:\n"
-            "1️⃣ Ver productos\n"
-            "2️⃣ Filtrar por código\n"
-            "3️⃣ Agregar producto\n"
-            "4️⃣ Actualizar producto\n"
-            "5️⃣ Eliminar producto\n"
-            "6️⃣ Registrar entrada\n"
-            "7️⃣ Registrar salida\n"
-            "8️⃣ Reporte\n"
-            "9️⃣ Revisar stock mínimo / vencimiento"
+            "1️⃣ Listar productos\n"
+            "2️⃣ Gestionar productos\n"
+            "3️⃣ Registrar entrada\n"
+            "4️⃣ Registrar salida\n"
+            "5️⃣ Revisar stock mínimo / vencimiento\n"
+            "6️⃣ Reporte"
         )
         msg.body(menu)
         return str(resp)
     elif phone_number in user_states:
         estado = user_states[phone_number]
 
+        if estado.get("step") == "submenu_gestion":
+            opcion = incoming_msg.strip().lower()
+            if opcion == "a":
+                user_states[phone_number] = {"step": "esperando_codigo"}
+                msg.body("🔍 Escribe el código del producto que deseas buscar:")
+                return str(resp)
+            elif opcion == "b":
+                user_states[phone_number] = {"step": "esperando_datos"}
+                msg.body("Por favor envía los datos del producto en este formato:\n"
+                        "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Lugar de almacenamiento\n")
+                return str(resp)
+            elif opcion == "c":
+                user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
+                msg.body("✏️ Ingresa el *código* del producto que deseas actualizar:")
+                return str(resp)
+            elif opcion == "d":
+                user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
+                msg.body("🗑️ Ingresa el *código* del producto que deseas eliminar:")
+                return str(resp)
+            else:
+                msg.body("❌ Opción inválida. Escribe A, B, C o D o escribe 'menu' para regresar.")
+                return str(resp)
+
         # Paso 1: Esperar datos
-        if estado.get("step") == "esperando_datos":
+        elif estado.get("step") == "esperando_datos":
             partes = [x.strip() for x in incoming_msg.split(",")]
             if len(partes) != 8:
                 msg.body("❌ Formato incorrecto. Asegúrate de enviar: Nombre, Marca, Fecha, Costo, Cantidad, Precio, Stock Mínimo")
@@ -559,38 +579,29 @@ def whatsapp_bot():
             return str(resp)
     # Opción 2: Filtrar por código
     elif incoming_msg == "2":
-        user_states[phone_number] = {"step": "esperando_codigo"}
-        msg.body("🔍 Escribe el código del producto que deseas consultar:")
-        return str(resp)
+        user_states[phone_number] = {"step": "submenu_gestion"}
+        msg.body(
+            "🛠️ *GESTIONAR PRODUCTOS:*\n"
+            "A. Filtrar por código\n"
+            "B. Agregar producto\n"
+            "C. Actualizar producto\n"
+            "D. Eliminar producto\n\n"
+            "Escribe A, B, C o D para continuar. O escribe 'menu' para volver."
+        )
+        return str(resp)    
 
-    # Opción 3: Agregar producto
+    # Opción 3: Registrar entrada
     elif incoming_msg == "3":
-        user_states[phone_number] = {"step": "esperando_datos"}
-        msg.body("Por favor envía los datos del producto en este formato:\n"
-                 "Nombre, Marca, Fecha de vencimiento (AAAA-MM-DD), Costo, Cantidad, Precio, Stock Mínimo, Lugar de almacenamiento\n")
-        return str(resp)
-    # Opción 4: Actualizar producto
-    elif incoming_msg == "4":
-        user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
-        msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
-        return str(resp)
-    # Opción 5: Eliminar producto
-    elif incoming_msg == "5":
-        user_states[phone_number] = {"step": "esperando_codigo_eliminar"}
-        msg.body("🗑️ Ingresa el código del producto que deseas eliminar:")
-        return str(resp)
-    # Opción 6: Registrar entrada
-    elif incoming_msg == "6":
         user_states[phone_number] = {"step": "entrada_codigo"}
         msg.body("📥 Ingresa el código del producto al que deseas registrar entrada:")
         return str(resp)   
-    # Opción 7: Registrar salida
-    elif incoming_msg == "7":
+    # Opción 4: Registrar salida
+    elif incoming_msg == "4":
         user_states[phone_number] = {"step": "salida_codigo"}
         msg.body("📤 Ingresa el código del producto del que deseas registrar una salida:")
         return str(resp)
-    # Opción 8: Reporte
-    elif incoming_msg == "8":
+    # Opción 6: Reporte
+    elif incoming_msg == "6":
         try:
             hoja = get_historial_sheet_for_number(phone_number)
             if not hoja:
@@ -630,32 +641,45 @@ def whatsapp_bot():
 
             # Fechas con más ventas
             max_ventas = max(fechas.values())
-            fechas_top = [f"{f} ({v})" for f, v in fechas.items() if v == max_ventas]
+            fechas_mas_ventas = [(f, v) for f, v in fechas.items() if v == max_ventas]
 
             # Top 3 más vendidos
-            top3_mas = sorted(productos.items(), key=lambda x: x[1][0], reverse=True)[:3]
-            resumen_top3_mas = "; ".join([f"{n} ({d[1]}, {d[2]}, {d[0]}u)" for n, d in top3_mas])
+            top_mas_vendidos = sorted(productos.items(), key=lambda x: x[1][0], reverse=True)[:3]
 
             # Top 3 menos vendidos
-            top3_menos = sorted(productos.items(), key=lambda x: x[1][0])[:3]
-            resumen_top3_menos = "; ".join([f"{n} ({d[1]}, {d[2]}, {d[0]}u)\n" for n, d in top3_menos])
+            top_menos_vendidos = sorted(productos.items(), key=lambda x: x[1][0])[:3]
 
-            resumen = (
-                f"📈 *Reporte de ventas:*\n"
-                f"📅 Fecha(s) con más ventas: {', '.join(fechas_top)}\n"
-                f"🥇 Top 3 más vendidos: {resumen_top3_mas}\n"
-                f"🥉 Top 3 menos vendidos: {resumen_top3_menos}\n"
-                "📲 Escribe *menu* para regresar al menú."
-            )
-            msg.body(resumen)
+            reporte = "📈 *REPORTE DE VENTAS*\n"
+            reporte += "-------------------------------------------\n"
+            reporte += "📅 *Fecha(s) con más ventas:* \n"
+            for fecha, total in fechas_mas_ventas:
+                reporte += f"{fecha} ({total})\n"
+
+            reporte += "-------------------------------------------\n"
+            reporte += "🥇 *Top 3 más vendidos:* \n"
+            for nombre, datos in top_mas_vendidos:
+                cantidad, codigo, marca = datos
+                reporte += f"{nombre} ({codigo}, {marca}, {cantidad}u)\n"
+
+            reporte += "-------------------------------------------\n"
+            reporte += "🥉 *Top 3 menos vendidos:* \n"
+            for nombre, datos in top_menos_vendidos:
+                cantidad, codigo, marca = datos
+                reporte += f"{nombre} ({codigo}, {marca}, {cantidad}u)\n"
+
+            reporte += "-------------------------------------------\n"
+            reporte += "📲 Escribe *menu* para regresar al menú."
+
+            msg.body(reporte)
+            return str(resp)
 
         except Exception as e:
             logging.error(f"❌ Error al generar reporte: {e}")
             msg.body("❌ Ocurrió un error al generar el reporte.")
         return str(resp)
 
-    # Opción 9: Revisar stock mínimo / vencimiento
-    elif incoming_msg == "9":
+    # Opción 5: Revisar stock mínimo / vencimiento
+    elif incoming_msg == "5":
         hoja = get_inventory_sheet_for_number(phone_number)
         if not hoja:
             msg.body("❌ No se encontró tu hoja de productos.")
@@ -693,7 +717,6 @@ def whatsapp_bot():
         msg.body(respuesta)
         return str(resp)
     return str(resp)
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
