@@ -63,17 +63,23 @@ def whatsapp_bot():
                 msg.body("❌ Opción inválida. Escribe A, B, C o D o escribe 'menu' para regresar.")
                 return str(resp)
 
-        # OPCION B: Agregar producto
+        # OPCIÓN B: AGREGAR PRODUCTO
         elif estado.get("step") == "preguntar_perecible":
             respuesta = incoming_msg.lower()
             if respuesta in ["sí", "si"]:
                 estado["perecible"] = True
                 estado["step"] = "elegir_categoria"
-                msg.body("📦 Elige la categoría del producto:\nA. Comestibles\nB. Medicamentos\nC. Higiene personal\nD. Limpieza")
+                msg.body(
+                    "📦 Elige la categoría del producto:\n"
+                    "A. Comestibles\nB. Medicamentos\nC. Higiene personal\nD. Limpieza"
+                )
             elif respuesta == "no":
                 estado["perecible"] = False
                 estado["step"] = "elegir_categoria"
-                msg.body("🛠️ Elige la categoría del producto:\nE. Herramientas\nF. Papelería\nG. Electrónicos\nH. Ropa")
+                msg.body(
+                    "🛠️ Elige la categoría del producto:\n"
+                    "E. Herramientas\nF. Papelería\nG. Electrónicos\nH. Ropa"
+                )
             else:
                 msg.body("❌ Respuesta no válida. Escribe 'sí' o 'no'.")
             return str(resp)
@@ -90,39 +96,35 @@ def whatsapp_bot():
 
             estado["categoria"] = categorias[opcion]
             estado["step"] = "esperando_datos"
-            if estado.get("perecible"):
-                msg.body("📝 Ingresa los datos del producto en este formato:\n```Artículo, Marca, Precio, Cantidad, Stock Mínimo, Ubicación referencial```")
-            else:
-                msg.body("📝 Ingresa los datos del producto en este formato:\n```Artículo, Marca, Precio, Cantidad,  Stock Mínimo, Ubicación referencial```")
+            msg.body(
+                "📝 Ingresa los datos del producto en este formato:\n"
+                "```Artículo, Marca, Precio, Cantidad, Stock Mínimo, Ubicación referencial```\n"
+                "📌 Si deseas cancelar, escribe *menu*."
+            )
             return str(resp)
 
         elif estado.get("step") == "esperando_datos":
             partes = [x.strip() for x in incoming_msg.split(",")]
 
-            if estado.get("perecible") and len(partes) != 8:
-                msg.body("❌ Formato incorrecto. Debe ser:\n```Artículo, Marca, Precio, Cantidad,  Stock Mínimo, Ubicación referencial```\n📌 Si deseas cancelar, escribe *menu*.")
-                return str(resp)
-            elif not estado.get("perecible") and len(partes) != 7:
-                msg.body("❌ Formato incorrecto. Debe ser:\n```Artículo, Marca, Precio, Cantidad,  Stock Mínimo, Ubicación referencial```\n📌 Si deseas cancelar, escribe *menu*.")
+            if len(partes) != 6:
+                msg.body(
+                    "❌ Formato incorrecto. Asegúrate de escribir:\n"
+                    "```Artículo, Marca, Precio, Cantidad, Stock Mínimo, Ubicación referencial```\n"
+                    "📌 Si deseas salir, escribe *menu*."
+                )
                 return str(resp)
 
             estado["nombre"] = partes[0]
             estado["marca"] = partes[1]
-            if estado.get("perecible"):
-                estado["precio"] = partes[2]
-                estado["cantidad"] = partes[3]
-                estado["stock_minimo"] = partes[4]
-                estado["lugar"] = partes[5]
-            else:
-                estado["precio"] = partes[4]
-                estado["cantidad"] = partes[3]
-                estado["stock_minimo"] = partes[5]
-                estado["lugar"] = partes[6]
+            estado["precio"] = partes[2]
+            estado["cantidad"] = partes[3]
+            estado["stock_minimo"] = partes[4]
+            estado["lugar"] = partes[5]
 
             estado["step"] = "esperando_empaque"
             msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre / tableta)")
             return str(resp)
-  
+
         elif estado.get("step") == "esperando_empaque":
             empaque = incoming_msg.strip().lower()
             if not empaque:
@@ -136,9 +138,9 @@ def whatsapp_bot():
                 return str(resp)
 
             # Generar prefijo del código
-            categoria_num = estado["categoria"]             # "1"..."8"
-            marca_inicial = estado["marca"][0].upper()      # primera letra de la marca
-            empaque_inicial = empaque[0].upper()            # primera letra del tipo de empaque
+            categoria_num = estado["categoria"]
+            marca_inicial = estado["marca"][0].upper()
+            empaque_inicial = empaque[0].upper()
             prefijo_codigo = f"{categoria_num}{marca_inicial}{empaque_inicial}"
 
             # Obtener productos existentes
@@ -170,8 +172,10 @@ def whatsapp_bot():
             # Agregar a la hoja
             hoja.append_row(nuevo_producto)
 
-            msg.body(f"✅ Producto '{estado['nombre']}' agregado con código *{codigo}*.\n"
-                    "¿Deseas registrar otro producto? (sí / no)")
+            msg.body(
+                f"✅ Producto '{estado['nombre']}' agregado con código *{codigo}*.\n"
+                "¿Deseas registrar otro producto? (sí / no)"
+            )
             estado.clear()
             estado["step"] = "confirmar_continuar"
             return str(resp)
@@ -180,12 +184,13 @@ def whatsapp_bot():
             if incoming_msg.lower() in ["sí", "si"]:
                 estado.clear()
                 estado["step"] = "preguntar_perecible"
-                msg.body("🧾 ¿El producto es perecible? (sí / no)")
+                msg.body("🧾 ¿El siguiente producto es perecible? (sí / no)")
             elif incoming_msg.lower() == "no":
                 user_states.pop(phone_number)
                 msg.body("📋 Has salido del registro de productos. Escribe 'menu' para ver las opciones.")
             else:
                 msg.body("❓ Respuesta no válida. Escribe 'sí' para registrar otro producto o 'no' para salir.")
+            return str(resp)
 
         # OPCION A: Filtrar por código
         elif estado.get("step") == "esperando_codigo":
@@ -235,119 +240,120 @@ def whatsapp_bot():
         elif estado.get("step") == "esperando_codigo_actualizar":
             codigo = incoming_msg.strip().upper()
             hoja = get_inventory_sheet_for_number(phone_number)
+            hoja_lotes = get_lotes_sheet_for_number(phone_number)
+
             productos = hoja.get_all_values()
+            lotes = hoja_lotes.get_all_values()[1:]  # Ignora encabezado
 
             encontrado = None
-            for i, row in enumerate(productos[1:], start=2):  # saltamos encabezado
+            for i, row in enumerate(productos[1:], start=2):
                 if row[0] == codigo:
                     encontrado = (i, row)
                     break
 
             if encontrado:
                 fila, producto = encontrado
-                user_states[phone_number] = {
+                lotes_producto = [l for l in lotes if l[0] == codigo]
+
+                estado.update({
                     "step": "esperando_campo_a_modificar",
                     "fila": fila,
                     "producto": producto,
-                    "codigo": codigo
-                }
+                    "codigo": codigo,
+                    "lotes": lotes_producto
+                })
+
+                detalles_lotes = ""
+                if lotes_producto:
+                    detalles_lotes = "\n\n📦 *Lotes disponibles:*\n"
+                    for idx, lote in enumerate(lotes_producto, start=1):
+                        detalles_lotes += (
+                            f"{idx}. Lote {lote[2]} - Vence: {lote[4]} - Costo: S/ {lote[5]} - Disponible: {lote[7]}\n"
+                        )
+
                 msg.body(
                     f"🔍 Producto encontrado: {producto[1]} - {producto[2]}\n"
-                    "¿Qué campo deseas modificar? (Fecha de vencimiento / Costo / Precio / Stock mínimo / Ubicación referencial)\n"
+                    f"💾 Código: {codigo}\n"
+                    f"¿Qué campo deseas modificar?\n"
+                    f"- Fecha de vencimiento\n- Costo\n- Precio\n- Stock mínimo\n- Ubicación referencial"
+                    f"{detalles_lotes}"
                 )
             else:
                 msg.body("❌ Producto no encontrado. ¿Deseas ingresar otro código? (sí / no)")
-                user_states[phone_number] = {"step": "confirmar_codigo_nuevamente_4"}
-            return str(resp)
-        
-        elif estado.get("step") == "confirmar_codigo_nuevamente_4":
-            if incoming_msg.lower() in ["si", "sí"]:
-                user_states[phone_number] = {"step": "esperando_codigo_actualizar"}
-                msg.body("🔄 Ingresa el código del producto que deseas actualizar:")
-            else:
-                user_states.pop(phone_number, None)
-                msg.body("✅ Volviendo al menú principal. Envía 'menu' para ver opciones.")
+                estado["step"] = "confirmar_codigo_nuevamente_4"
             return str(resp)
 
         elif estado.get("step") == "esperando_campo_a_modificar":
             campo = incoming_msg.strip().lower()
-            campos_validos = {
-                "fecha de vencimiento": 3,
-                "costo": 4,
-                "precio": 6,
-                "stock mínimo": 7,
-                "ubicación referencial": 8
-            }
+            campos_validos = ["fecha de vencimiento", "costo", "precio", "stock mínimo", "ubicación referencial"]
             if campo not in campos_validos:
-                msg.body("❌ Campo no válido. Elige entre: fecha de vencimiento / costo / precio / stock mínimo / ubicación referencial.\n")
+                msg.body("❌ Campo no válido. Elige uno de: Fecha de vencimiento / Costo / Precio / Stock mínimo / Ubicación referencial.")
+                return str(resp)
+
+            estado["campo"] = campo
+
+            if campo in ["fecha de vencimiento", "costo"]:
+                if not estado.get("lotes"):
+                    msg.body("❌ Este producto no tiene lotes registrados. No se puede modificar ese campo.")
+                    user_states.pop(phone_number, None)
+                    return str(resp)
+                estado["step"] = "seleccionar_lote_para_modificar"
+                texto_lotes = "\n\nElige el número del lote que deseas modificar:\n"
+                for idx, lote in enumerate(estado["lotes"], start=1):
+                    texto_lotes += f"{idx}. Lote {lote[2]} - Vence: {lote[4]} - Costo: S/ {lote[5]} - Disponible: {lote[7]}\n"
+                msg.body(texto_lotes)
             else:
-                estado["campo"] = campo
-                estado["columna"] = campos_validos[campo]
                 estado["step"] = "esperando_nuevo_valor"
                 msg.body(f"✏️ Ingresa el nuevo valor para '{campo}':")
             return str(resp)
-    
+
+        elif estado.get("step") == "seleccionar_lote_para_modificar":
+            try:
+                index = int(incoming_msg.strip()) - 1
+                lote = estado["lotes"][index]
+                estado["lote_seleccionado"] = lote
+                estado["index_lote"] = index + 2  # +2 por encabezado en hoja
+                estado["step"] = "esperando_nuevo_valor"
+                msg.body(f"✏️ Ingresa el nuevo valor para '{estado['campo']}' del lote {lote[2]}:")
+            except:
+                msg.body("❌ Opción inválida. Ingresa el número del lote a modificar.")
+            return str(resp)
+
         elif estado.get("step") == "esperando_nuevo_valor":
             nuevo_valor = incoming_msg.strip()
-            hoja = get_inventory_sheet_for_number(phone_number)
-            fila = estado["fila"]
-            columna = estado["columna"]
             campo = estado["campo"]
 
             try:
-                if campo == "costo":
-                    nuevo_costo = float(nuevo_valor)
-                    precio_actual = float(estado["producto"][6])
-                    if nuevo_costo >= precio_actual:
-                        estado["nuevo_costo"] = nuevo_costo
-                        estado["step"] = "confirmar_costo_mayor"
-                        msg.body(
-                            f"- Costo actual: *S/ {costo_actual:.2f}*\n"
-                            f"⚠️ Estás intentando actualizar el *costo* a *S/ {nuevo_costo:.2f}*, "
-                            f"pero el *precio actual* es *S/ {precio_actual:.2f}*.\n"
-                            "🚨 El nuevo costo es mayor o igual al precio de venta.Esto significa que estarías vendiendo con pérdida.\n"
-                            "¿Deseas continuar con la actualización del costo? (sí / no)"
-                        )
-                        return str(resp)
+                if campo in ["fecha de vencimiento", "costo"]:
+                    hoja_lotes = get_lotes_sheet_for_number(phone_number)
+                    col = 5 if campo == "fecha de vencimiento" else 6
+                    hoja_lotes.update_cell(estado["index_lote"], col, nuevo_valor)
+                    msg.body(f"✅ {campo.title()} del lote actualizado correctamente.")
 
-                hoja.update_cell(fila, columna + 1, nuevo_valor)
-                msg.body(f"✅ El campo '{campo}' fue actualizado correctamente.\n¿Deseas actualizar otro campo de este producto? (sí / no)")
+                else:
+                    hoja = get_inventory_sheet_for_number(phone_number)
+                    campos_columna = {
+                        "precio": 4,
+                        "stock mínimo": 5,
+                        "ubicación referencial": 6
+                    }
+                    hoja.update_cell(estado["fila"], campos_columna[campo] + 1, nuevo_valor)
+                    msg.body(f"✅ Campo '{campo}' actualizado correctamente.")
+
                 estado["step"] = "confirmar_otro_campo"
+                msg.body("¿Deseas actualizar otro campo de este producto? (sí / no)")
             except Exception as e:
-                msg.body("❌ Error al actualizar el valor. Intenta nuevamente.")
-                logging.error(f"Error al actualizar celda: {e}")
-            return str(resp)
-
-        elif estado.get("step") == "confirmar_costo_mayor":
-            if incoming_msg.lower() in ["sí", "si"]:
-                hoja = get_inventory_sheet_for_number(phone_number)
-                fila = estado["fila"]
-                hoja.update_cell(fila, 5, str(estado["nuevo_costo"]))
-                msg.body("✅ Costo actualizado. ¿Deseas modificar también el precio? (sí / no)")
-                estado["step"] = "confirmar_modificar_precio"
-            else:
-                user_states.pop(phone_number, None)
-                msg.body("✅ Actualización cancelada. Envía 'menu' para ver opciones.")
-            return str(resp)
-
-        elif estado.get("step") == "confirmar_modificar_precio":
-            if incoming_msg.lower() in ["sí", "si"]:
-                estado["campo"] = "precio"
-                estado["columna"] = 6
-                estado["step"] = "esperando_nuevo_valor"
-                msg.body("✏️ Ingresa el nuevo valor para 'precio':")
-            else:
-                user_states.pop(phone_number, None)
-                msg.body("✅ Modificación finalizada. Envía 'menu' para ver opciones.")
+                logging.error(f"❌ Error al actualizar: {e}")
+                msg.body("❌ Ocurrió un error al actualizar. Intenta nuevamente.")
             return str(resp)
 
         elif estado.get("step") == "confirmar_otro_campo":
-            if incoming_msg.lower() in ["si", "sí"]:
+            if incoming_msg.lower() in ["sí", "si"]:
                 estado["step"] = "esperando_campo_a_modificar"
-                msg.body("🔁 ¿Qué otro campo deseas modificar? (Fecha de vencimiento / costo / precio / stock mínimo / Ubicación referencial)")
+                msg.body("🔁 ¿Qué otro campo deseas modificar? (Fecha de vencimiento / Costo / Precio / Stock mínimo / Ubicación referencial)")
             else:
                 user_states.pop(phone_number, None)
-                msg.body("✅ Actualización finalizada. Envía 'menu' para ver opciones.")
+                msg.body("✅ Actualización finalizada. Escribe 'menu' para más opciones.")
             return str(resp)
 
         # OPCION D: Eliminar producto
@@ -357,7 +363,7 @@ def whatsapp_bot():
             codigo = incoming_msg.strip().upper()
 
             encontrado = None
-            for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
+            for i, row in enumerate(productos[1:], start=2):
                 if row[0] == codigo:
                     encontrado = (i, row)
                     break
@@ -375,8 +381,8 @@ def whatsapp_bot():
                 "codigo": codigo
             }
             msg.body(
-                f"⚠️ Producto encontrado: {producto[1]} - {producto[2]}\n"
-                f"¿Estás seguro de que deseas eliminarlo? (sí / no)"
+                f"⚠️ Producto encontrado: *{producto[1]}* - {producto[2]}\n"
+                "¿Estás seguro de que deseas eliminarlo completamente? Esto también eliminará los lotes relacionados. (sí / no)"
             )
             return str(resp)
 
@@ -391,19 +397,62 @@ def whatsapp_bot():
 
         elif estado.get("step") == "confirmar_eliminacion":
             if incoming_msg.lower() in ["si", "sí"]:
-                hoja = get_inventory_sheet_for_number(phone_number)
-                fila = user_states[phone_number]["fila"]
-                try:
-                    hoja.delete_rows(fila)
-                    msg.body("✅ Producto eliminado correctamente.")
-                except Exception as e:
-                    msg.body("❌ Ocurrió un error al eliminar el producto.")
-                    logging.error(f"Error al eliminar fila: {e}")
-                user_states.pop(phone_number, None)
+                codigo = estado["codigo"]
+                hoja_lotes = get_lotes_sheet_for_number(phone_number)
+                filas_a_borrar = []
+
+                if hoja_lotes:
+                    lotes = hoja_lotes.get_all_values()
+                    for i, fila in enumerate(lotes[1:], start=2):
+                        if fila[0] == codigo:
+                            disponible = int(fila[7]) if fila[7].isdigit() else 0
+                            if disponible > 0:
+                                estado["step"] = "doble_confirmacion_lotes"
+                                estado["filas_lotes"] = filas_a_borrar
+                                msg.body("⚠️ Este producto tiene lotes con *stock disponible*. ¿Seguro que deseas eliminarlos junto con el producto? (sí / no)")
+                                return str(resp)
+                            filas_a_borrar.append(i)
+
+                estado["step"] = "eliminar_todo"
+                return whatsapp_bot()  # fuerza el paso al siguiente estado
             else:
-                msg.body("✅ Eliminación cancelada. Envía 'menu' para ver opciones.")
                 user_states.pop(phone_number, None)
+                msg.body("✅ Eliminación cancelada. Envía 'menu' para ver opciones.")
             return str(resp)
+
+        elif estado.get("step") == "doble_confirmacion_lotes":
+            if incoming_msg.lower() in ["sí", "si"]:
+                estado["step"] = "eliminar_todo"
+                return whatsapp_bot()  # continúa con eliminación
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Eliminación cancelada. Escribe 'menu' para volver.")
+            return str(resp)
+
+        elif estado.get("step") == "eliminar_todo":
+            try:
+                hoja = get_inventory_sheet_for_number(phone_number)
+                hoja_lotes = get_lotes_sheet_for_number(phone_number)
+                fila = estado["fila"]
+                codigo = estado["codigo"]
+
+                hoja.delete_rows(fila)
+
+                eliminados = 0
+                if hoja_lotes:
+                    lotes = hoja_lotes.get_all_values()
+                    filas_a_borrar = [i for i, fila in enumerate(lotes[1:], start=2) if fila[0] == codigo]
+                    for i in reversed(filas_a_borrar):
+                        hoja_lotes.delete_rows(i)
+                        eliminados += 1
+
+                msg.body(f"✅ Producto eliminado. Se eliminaron {eliminados} lote(s) asociados.")
+            except Exception as e:
+                logging.error(f"❌ Error al eliminar: {e}")
+                msg.body("❌ Ocurrió un error al eliminar el producto o sus lotes.")
+            user_states.pop(phone_number, None)
+            return str(resp)
+
         # Paso 6: Registrar entrada
         elif estado.get("step") == "entrada_codigo":
             hoja = get_inventory_sheet_for_number(phone_number)

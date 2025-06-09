@@ -74,6 +74,22 @@ def get_inventory_sheet_for_number(phone_number):
     else:
         return None
 
+def get_lotes_sheet_for_number(phone_number):
+    """
+    Devuelve la hoja 'Lotes' asociada al número del cliente.
+    """
+    url = get_client_sheet_url(phone_number)
+    if url:
+        try:
+            libro = gc.open_by_url(url)
+            return libro.worksheet("Lotes")  # Accede a la hoja 'Lotes'
+        except Exception as e:
+            logging.error(f"❌ Error al acceder a la hoja 'Lotes': {e}")
+            return None
+    else:
+        logging.error("❌ No se encontró la URL de hoja del cliente.")
+        return None
+
 def obtener_productos(hoja):
     try:
         data = hoja.get_all_values()[1:]  # Ignora la fila de encabezado
