@@ -141,7 +141,7 @@ def get_historial_sheet_for_number(phone_number):
         logging.error(f"❌ Error al acceder a hoja de historial: {e}")
         return None
         
-def registrar_movimiento(phone_number, tipo, codigo, nombre, cantidad, stock_final, fecha=None):
+def registrar_movimiento(phone_number, tipo, codigo, nombre, cantidad, stock_final, fecha=None, precio="", costo=""):
     try:
         sheet_url = get_client_sheet_url(phone_number)
         if not sheet_url:
@@ -153,8 +153,18 @@ def registrar_movimiento(phone_number, tipo, codigo, nombre, cantidad, stock_fin
         if not fecha:
             fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        nuevo_registro = [fecha, codigo, nombre, tipo, str(cantidad), str(stock_final)]
+        nuevo_registro = [
+            fecha,
+            codigo,
+            nombre,
+            tipo,
+            str(cantidad),
+            str(stock_final),
+            str(precio),
+            str(costo)
+        ]
         hoja_historial.append_row(nuevo_registro)
     except Exception as e:
         logging.error(f"❌ Error al registrar movimiento: {e}")
+        return
 
