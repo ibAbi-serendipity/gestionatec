@@ -459,10 +459,10 @@ def whatsapp_bot():
             productos = hoja.get_all_values()
             codigo = incoming_msg.strip().upper()
 
-            for i, row in enumerate(productos[1:], start=2):  # Saltamos encabezado
+            for i, row in enumerate(productos[1:], start=2):
                 if row[0] == codigo:
                     estado.update({
-                        "step": "entrada_fecha",
+                        "step": "entrada_fecha_compra",
                         "fila": i,
                         "producto": row,
                         "codigo": codigo
@@ -470,7 +470,7 @@ def whatsapp_bot():
                     msg.body(
                         f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
                         f"📦 Stock actual: {row[5]}\n"
-                        "📅 Ingresa la fecha de compra (AAAA-MM-DD):"
+                        "📅 Ingresa la *fecha de compra* (AAAA-MM-DD):\nEscribe *menu* para cancelar."
                     )
                     return str(resp)
 
@@ -487,107 +487,185 @@ def whatsapp_bot():
                 msg.body("✅ Cancelado. Envía 'menu' para ver las opciones.")
             return str(resp)
 
-        elif estado.get("step") == "entrada_fecha":
-            nueva_fecha = incoming_msg.strip()
-            if len(nueva_fecha) != 10 or nueva_fecha[4] != "-" or nueva_fecha[7] != "-":
-                msg.body("❌ Formato de fecha inválido. Usa el formato AAAA-MM-DD.")
+        elif estado.get("step") == "entrada_fecha_compra":
+            if incoming_msg.lower() == "menu":
+                user_states.pop(phone_number, None)
+                msg.body("✅ Registro cancelado. Escribe 'menu' para ver las opciones.")
                 return str(resp)
 
-            nueva_fecha_obj = normalizar_fecha(nueva_fecha)
-            if not nueva_fecha_obj:
-                msg.body("❌ Fecha inválida. Asegúrate de que sea válida y con formato AAAA-MM-DD.")
+            fecha_compra = incoming_msg.strip()
+            fecha_compra_obj = normalizar_fecha(fecha_compra)
+
+            if not fecha_compra_obj:
+                msg.body("❌ Formato de fecha inválido. ¿Deseas intentarlo de nuevo? (sí / no)")
+                estado["step"] = "confirmar_fecha_compra_invalida"
                 return str(resp)
 
-            estado["nueva_fecha"] = nueva_fecha
+            hoy = datetime.date.today()
+            if fecha_compra_obj > hoy:
+                msg.body("❌ La fecha de compra no puede ser futura. Ingresa una fecha válida o escribe *menu* para salir:")
+                return str(resp)
 
-            historial = get_historial_sheet_for_number(phone_number)
-            if historial:
-                registros = historial.get_all_values()[1:]  # Omitir encabezado
-                existe = any(
-                    normalizar_fecha(row[0]) == nueva_fecha_obj and
-                    row[1].strip() == estado["codigo"] and
-                    row[3].strip().lower() == "entrada"
-                    for row in registros
-                )
-                if existe:
-                    estado["step"] = "confirmar_entrada_duplicada"
-                    msg.body(f"⚠️ Ya existe una entrada del producto {estado['codigo']} para la fecha {nueva_fecha}.\n¿Deseas registrarla nuevamente? (sí / no)")
-                    return str(resp)
+            estado["fecha_compra"] = fecha_compra
 
-            estado["step"] = "entrada_cantidad"
-            msg.body(f"📅 Fecha registrada: {nueva_fecha}.\n🔢 Ingresa la cantidad que deseas registrar:")
+            # Detectar si es perecible a partir de la hoja (si el producto ya no tiene fecha anterior)
+            perecible = True
+            hoja_lotes = get_lotes_sheet_for_number(phone_number)
+            lotes_existentes = hoja_lotes.get_all_values()
+            for row in lotes_existentes:
+                if row[0] == estado["codigo"] and not row[4].strip():
+                    perecible = False
+                    break
+
+            if perecible:
+                estado["perecible"] = True
+                estado["step"] = "entrada_fecha_vencimiento"
+                msg.body("📅 Ingresa la *fecha de vencimiento* (AAAA-MM-DD):")
+            else:
+                estado["fecha_vencimiento"] = ""
+                estado["step"] = "entrada_costo"
+                msg.body("💰 Ingresa el *costo unitario* del lote:")
             return str(resp)
 
-        elif estado.get("step") == "confirmar_entrada_duplicada":
+        elif estado.get("step") == "confirmar_fecha_compra_invalida":
             if incoming_msg.lower() in ["sí", "si"]:
-                estado["step"] = "entrada_cantidad"
-                msg.body("🔢 Ingresa la cantidad que deseas registrar:")
+                estado["step"] = "entrada_fecha_compra"
+                msg.body("📅 Ingresa la *fecha de compra* (AAAA-MM-DD):")
             else:
                 user_states.pop(phone_number, None)
-                msg.body("✅ Registro cancelado. Escribe 'menu' para ver más opciones.")
+                msg.body("✅ Registro cancelado. Escribe 'menu' para ver opciones.")
             return str(resp)
-        
+
+        elif estado.get("step") == "entrada_fecha_vencimiento":
+            fecha_vencimiento = incoming_msg.strip()
+            fecha_vencimiento_obj = normalizar_fecha(fecha_vencimiento)
+
+            if not fecha_vencimiento_obj:
+                msg.body("❌ Fecha de vencimiento inválida. Intenta nuevamente:")
+                return str(resp)
+
+            estado["fecha_vencimiento"] = fecha_vencimiento
+            estado["step"] = "entrada_costo"
+            msg.body("💰 Ingresa el *costo unitario* del lote:")
+            return str(resp)
+
+        elif estado.get("step") == "entrada_costo":
+            costo = incoming_msg.strip()
+            try:
+                float(costo)
+                estado["costo"] = costo
+                estado["step"] = "entrada_cantidad"
+                msg.body("🔢 Ingresa la *cantidad* de productos del nuevo lote:")
+            except:
+                msg.body("❌ Costo no válido. Ingresa un número válido.")
+            return str(resp)
+
         elif estado.get("step") == "entrada_cantidad":
-            cantidad_extra = incoming_msg.strip()
-            if not cantidad_extra.isdigit():
-                msg.body("❌ Por favor ingresa un número válido.")
+            cantidad = incoming_msg.strip()
+            if not cantidad.isdigit():
+                msg.body("❌ Ingresa una cantidad válida.")
                 return str(resp)
 
             hoja = get_inventory_sheet_for_number(phone_number)
             fila = estado["fila"]
             producto = estado["producto"]
-            cantidad_actual = int(producto[5])
-            nueva_cantidad = cantidad_actual + int(cantidad_extra)
+            codigo = estado["codigo"]
+            nueva_cantidad = int(producto[5]) + int(cantidad)
 
-            hoja.update_cell(fila, 6, str(nueva_cantidad))  # Columna de cantidad (6)
-            # Registrar en historial
-            registrar_movimiento(phone_number, "Entrada", estado["codigo"], producto[1], cantidad_extra, nueva_cantidad, estado["nueva_fecha"])
+            # Actualizar stock total en hoja de productos
+            hoja.update_cell(fila, 6, str(nueva_cantidad))
 
-            msg.body(f"✅ Se registró la entrada. Nuevo stock: {nueva_cantidad}\n"
-                    "📋 Escribe *menu* para ver las opciones disponibles."
-                )
-            user_states.pop(phone_number, None)
+            # Registrar lote
+            hoja_lotes = get_lotes_sheet_for_number(phone_number)
+            lotes = hoja_lotes.get_all_values()
+            lotes_existentes = [row for row in lotes if row[0] == codigo]
+            nuevo_lote_id = str(len(lotes_existentes) + 1)
+
+            nuevo_lote = [
+                codigo,
+                producto[1],
+                nuevo_lote_id,
+                estado["fecha_compra"],
+                estado.get("fecha_vencimiento", ""),
+                estado["costo"],
+                cantidad,
+                cantidad
+            ]
+            hoja_lotes.append_row(nuevo_lote)
+
+            # Registrar en historial con precio de venta desde producto[3]
+            registrar_movimiento(
+                phone_number,
+                "Entrada",
+                codigo,
+                producto[1],
+                cantidad,
+                nueva_cantidad,
+                estado["fecha_compra"],
+                precio=producto[3],
+                costo=estado["costo"]
+            )
+
+            msg.body(
+                f"✅ Entrada registrada. Nuevo stock: {nueva_cantidad}\n"
+                "📦 ¿Deseas registrar otra entrada? (sí / no)"
+            )
+            estado.clear()
+            estado["step"] = "confirmar_otra_entrada"
             return str(resp)
-        # Paso 7: Registrar salida
-        elif phone_number in user_states and user_states[phone_number].get("step") == "salida_codigo":
-            try:
-                hoja = get_inventory_sheet_for_number(phone_number)
-                if not hoja:
-                    msg.body("❌ No se pudo acceder a tu hoja de productos. Intenta más tarde.")
-                    user_states.pop(phone_number, None)
-                    return str(resp)
-                estado = user_states[phone_number]
-                productos = hoja.get_all_values()
-                codigo = incoming_msg.strip().upper()
 
-                for i, row in enumerate(productos[1:], start=2):
-                    if row[0] == codigo:
-                        estado.update({
-                            "step": "salida_fecha",
-                            "fila": i,
-                            "producto": row,
-                            "codigo": codigo
-                        })
-                        msg.body(
-                            f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
-                            f"📦 Stock actual: {row[5]}\n"
-                            "📅 Ingresa la fecha de salida del producto (AAAA-MM-DD):"
-                        )
+        elif estado.get("step") == "confirmar_otra_entrada":
+            if incoming_msg.lower() in ["sí", "si"]:
+                estado.clear()
+                estado["step"] = "entrada_codigo"
+                msg.body("📥 Ingresa el código del producto al que deseas registrar entrada:")
+            else:
+                user_states.pop(phone_number, None)
+                msg.body("✅ Registro finalizado. Escribe *menu* para ver las opciones.")
+            return str(resp)
+
+        # Paso 7: Registrar salida
+        # Paso 7: Registrar salida con control FIFO
+        elif estado.get("step") == "salida_codigo":
+            hoja = get_inventory_sheet_for_number(phone_number)
+            productos = hoja.get_all_values()
+            codigo = incoming_msg.strip().upper()
+
+            for i, row in enumerate(productos[1:], start=2):
+                if row[0] == codigo:
+                    estado.update({
+                        "step": "salida_fecha",
+                        "fila": i,
+                        "producto": row,
+                        "codigo": codigo
+                    })
+                    hoja_lotes = get_lotes_sheet_for_number(phone_number)
+                    lotes = [l for l in hoja_lotes.get_all_values()[1:] if l[0] == codigo and int(l[7]) > 0]
+                    lotes_ordenados = sorted(lotes, key=lambda l: normalizar_fecha(l[3]))
+
+                    if not lotes_ordenados:
+                        msg.body("⚠️ No hay lotes disponibles para este producto.")
+                        user_states.pop(phone_number, None)
                         return str(resp)
 
-                msg.body("❌ Código no encontrado. ¿Deseas ingresar otro código? (sí / no)")
-                user_states[phone_number] = {"step": "salida_codigo_reintentar"}
-                return str(resp)
+                    primer_lote = lotes_ordenados[0]
+                    estado["lote"] = primer_lote
 
-            except Exception as e:
-                import logging
-                logging.error(f"❌ Error al procesar salida: {e}")
-                msg.body("⚠️ Hubo un problema al consultar tu inventario. Intenta más tarde.")
-                return str(resp)
+                    msg.body(
+                        f"🔍 Producto encontrado: {row[1]} - {row[2]}\n"
+                        f"📦 Stock total: {row[5]} | 💰 Precio actual: S/ {row[3]}\n"
+                        f"📦 Se usará el lote más antiguo (ID {primer_lote[2]}) con {primer_lote[7]} unidades disponibles.\n"
+                        "📅 Ingresa la *fecha de salida* (AAAA-MM-DD):"
+                    )
+                    return str(resp)
 
-        elif phone_number in user_states and user_states[phone_number].get("step") == "salida_codigo_reintentar":
-            if incoming_msg.lower() == "sí":
-                user_states[phone_number] = {"step": "salida_codigo"}
+            msg.body("❌ Código no encontrado. ¿Deseas ingresar otro código? (sí / no)")
+            user_states[phone_number] = {"step": "salida_codigo_reintentar"}
+            return str(resp)
+
+        elif estado.get("step") == "salida_codigo_reintentar":
+            if incoming_msg.lower() in ["sí", "si"]:
+                estado["step"] = "salida_codigo"
                 msg.body("📤 Ingresa el código del producto:")
             else:
                 user_states.pop(phone_number, None)
@@ -597,63 +675,57 @@ def whatsapp_bot():
         elif estado.get("step") == "salida_fecha":
             fecha_salida = incoming_msg.strip()
             fecha_obj = normalizar_fecha(fecha_salida)
+            hoy = datetime.date.today()
 
             if not fecha_obj:
                 msg.body("❌ Formato de fecha inválido. Usa el formato AAAA-MM-DD.")
                 return str(resp)
+            if fecha_obj > hoy:
+                msg.body("❌ La fecha de salida no puede ser futura. Ingresa una fecha válida.")
+                return str(resp)
+
+            lote = estado["lote"]
+            vencimiento_lote = normalizar_fecha(lote[4])
+            if vencimiento_lote and vencimiento_lote < fecha_obj:
+                msg.body(f"⚠️ El lote seleccionado (ID {lote[2]}) venció el {lote[4]}. No se permite registrar salidas de productos vencidos.")
+                user_states.pop(phone_number, None)
+                return str(resp)
 
             estado["fecha_salida"] = fecha_salida
-
-            # Verificar duplicado en historial
-            historial = get_historial_sheet_for_number(phone_number)
-            if historial:
-                registros = historial.get_all_values()[1:]
-                existe = any(
-                    normalizar_fecha(row[0]) == fecha_obj and
-                    row[1].strip() == estado["codigo"] and
-                    row[3].strip().lower() == "salida"
-                    for row in registros
-                )
-                if existe:
-                    estado["step"] = "confirmar_salida_duplicada"
-                    msg.body(f"⚠️ Ya hay una salida registrada para {estado['codigo']} en {fecha_salida}.\n¿Deseas registrarla nuevamente? (sí / no)")
-                    return str(resp)
-
             estado["step"] = "salida_cantidad"
-            producto = estado["producto"]
-            msg.body(f"📅 Fecha registrada: {fecha_salida}.\n🔢 Ingresa la cantidad que deseas retirar del producto {producto[1]} - {producto[2]}:")
-            return str(resp)
-
-        elif estado.get("step") == "confirmar_salida_duplicada":
-            if incoming_msg.lower() in ["sí", "si"]:
-                estado["step"] = "salida_cantidad"
-                producto = estado["producto"]
-                msg.body(f"🔢 Ingresa la cantidad que deseas retirar del producto {producto[1]} - {producto[2]}:")
-            else:
-                user_states.pop(phone_number, None)
-                msg.body("✅ Registro cancelado. Escribe 'menu' para ver más opciones.")
+            msg.body("🔢 Ingresa la cantidad que deseas retirar:")
             return str(resp)
 
         elif estado.get("step") == "salida_cantidad":
             cantidad_salida = incoming_msg.strip()
             if not cantidad_salida.isdigit():
-                msg.body("❌ Por favor ingresa un número válido.")
+                msg.body("❌ Ingresa una cantidad válida.")
                 return str(resp)
 
-            hoja = get_inventory_sheet_for_number(phone_number)
-            fila = estado["fila"]
-            producto = estado["producto"]
-            cantidad_actual = int(producto[5])
             cantidad_retirar = int(cantidad_salida)
+            lote = estado["lote"]
+            disponible_lote = int(lote[7])
 
-            if cantidad_retirar > cantidad_actual:
-                msg.body(f"❌ No puedes retirar más de lo disponible. Stock actual: {cantidad_actual}")
+            if cantidad_retirar > disponible_lote:
+                msg.body(f"❌ No puedes retirar más de lo disponible en el lote. Disponible: {disponible_lote}")
                 return str(resp)
 
-            nuevo_stock = cantidad_actual - cantidad_retirar
-            hoja.update_cell(fila, 6, str(nuevo_stock))  # Columna cantidad (6)
+            hoja_productos = get_inventory_sheet_for_number(phone_number)
+            hoja_lotes = get_lotes_sheet_for_number(phone_number)
 
-            # Registrar en historial con fecha
+            fila_producto = estado["fila"]
+            producto = estado["producto"]
+            nuevo_stock = int(producto[5]) - cantidad_retirar
+            hoja_productos.update_cell(fila_producto, 6, str(nuevo_stock))
+
+            # Actualizar lote
+            filas_lotes = hoja_lotes.get_all_values()
+            for idx, row in enumerate(filas_lotes):
+                if row[0] == estado["codigo"] and row[2] == lote[2]:
+                    fila_lote = idx + 1
+                    hoja_lotes.update_cell(fila_lote, 8, str(disponible_lote - cantidad_retirar))
+                    break
+
             registrar_movimiento(
                 phone_number,
                 "Salida",
@@ -661,13 +733,16 @@ def whatsapp_bot():
                 producto[1],
                 cantidad_retirar,
                 nuevo_stock,
-                estado["fecha_salida"]
+                estado["fecha_salida"],
+                precio=producto[3],
+                costo=lote[5]
             )
 
-            msg.body(f"✅ Salida registrada. Nuevo stock de {producto[1]} {producto[2]}: {nuevo_stock}")
+            msg.body(f"✅ Salida registrada. Nuevo stock total: {nuevo_stock}\n📋 Escribe *menu* para regresar al menú.")
             user_states.pop(phone_number, None)
             return str(resp)
         return str(resp)
+        
     # Opción 1: Ver productos
     elif incoming_msg == "1":
         hoja_cliente = get_inventory_sheet_for_number(phone_number)
