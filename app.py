@@ -104,7 +104,7 @@ def whatsapp_bot():
             estado["step"] = "esperando_datos"
             msg.body(
                 "📝 Ingresa los datos del producto en este formato:\n"
-                "```Artículo, Marca, Precio, Cantidad, Stock Mínimo, Ubicación referencial```\n"
+                "```Artículo, Marca, Precio, Stock Mínimo, Ubicación referencial```\n"
                 "📌 Si deseas cancelar, escribe *menu*."
             )
             return str(resp)
@@ -115,7 +115,7 @@ def whatsapp_bot():
             if len(partes) != 6:
                 msg.body(
                     "❌ Formato incorrecto. Asegúrate de escribir:\n"
-                    "```Artículo, Marca, Precio, Cantidad, Stock Mínimo, Ubicación referencial```\n"
+                    "```Artículo, Marca, Precio, Stock Mínimo, Ubicación referencial```\n"
                     "📌 Si deseas salir, escribe *menu*."
                 )
                 return str(resp)
@@ -123,9 +123,8 @@ def whatsapp_bot():
             estado["nombre"] = partes[0]
             estado["marca"] = partes[1]
             estado["precio"] = partes[2]
-            estado["cantidad"] = partes[3]
-            estado["stock_minimo"] = partes[4]
-            estado["lugar"] = partes[5]
+            estado["stock_minimo"] = partes[3]
+            estado["lugar"] = partes[4]
 
             estado["step"] = "esperando_empaque"
             msg.body("📦 ¿Cuál es el tipo de empaque? (unidad / caja / bolsa / paquete / saco / botella / lata / tetrapack / sobre / tableta)")
@@ -170,7 +169,7 @@ def whatsapp_bot():
                 estado["nombre"],
                 estado["marca"],
                 estado["precio"],
-                estado["cantidad"],
+                "0",
                 estado["stock_minimo"],
                 estado["lugar"]
             ]
