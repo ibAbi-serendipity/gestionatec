@@ -625,7 +625,6 @@ def whatsapp_bot():
             return str(resp)
 
         # Paso 7: Registrar salida
-        # Paso 7: Registrar salida con control FIFO
         elif estado.get("step") == "salida_codigo":
             hoja = get_inventory_sheet_for_number(phone_number)
             productos = hoja.get_all_values()
@@ -742,7 +741,7 @@ def whatsapp_bot():
             user_states.pop(phone_number, None)
             return str(resp)
         return str(resp)
-        
+
     # Opción 1: Ver productos
     elif incoming_msg == "1":
         hoja_cliente = get_inventory_sheet_for_number(phone_number)
@@ -805,12 +804,13 @@ def whatsapp_bot():
 
             fechas = {}
             productos = {}  # nombre: [cantidad_total, código, marca]
+            ganancias = 0.0
 
             hoja_productos = get_inventory_sheet_for_number(phone_number)
             datos_productos = hoja_productos.get_all_values()[1:]
 
             for row in datos:
-                fecha, codigo, nombre, tipo, cantidad, _ = row
+                fecha, codigo, nombre, tipo, cantidad, stock_final, precio_venta, costo = row
                 cantidad = int(cantidad)
                 if tipo.lower() == "salida":
                     fechas[fecha] = fechas.get(fecha, 0) + cantidad
@@ -825,6 +825,11 @@ def whatsapp_bot():
                     else:
                         productos[nombre][0] += cantidad
 
+                    try:
+                        ganancias += (float(precio_venta) - float(costo)) * cantidad
+                    except:
+                        continue
+
             if not productos:
                 msg.body("⚠️ No hay suficientes salidas para generar un reporte.")
                 return str(resp)
@@ -838,6 +843,21 @@ def whatsapp_bot():
 
             # Top 3 menos vendidos
             top_menos_vendidos = sorted(productos.items(), key=lambda x: x[1][0])[:3]
+
+            # Cálculo de pérdidas por productos vencidos
+            perdidas = 0.0
+            hoja_lotes = get_lotes_sheet_for_number(phone_number)
+            hoy = datetime.date.today()
+            lotes = hoja_lotes.get_all_values()[1:]
+            for row in lotes:
+                try:
+                    fecha_venc = normalizar_fecha(row[4])
+                    disponible = int(row[7])
+                    costo_lote = float(row[5])
+                    if fecha_venc and fecha_venc < hoy and disponible > 0:
+                        perdidas += disponible * costo_lote
+                except:
+                    continue
 
             reporte = "📈 *REPORTE DE VENTAS*\n"
             reporte += "-------------------------------------------\n"
@@ -858,6 +878,9 @@ def whatsapp_bot():
                 reporte += f"{nombre} ({codigo}, {marca}, {cantidad}u)\n"
 
             reporte += "-------------------------------------------\n"
+            reporte += f"💰 *Ganancias acumuladas:* S/ {ganancias:.2f}\n"
+            reporte += f"⚠️ *Pérdidas por productos vencidos:* S/ {perdidas:.2f}\n"
+            reporte += "-------------------------------------------\n"
             reporte += "📲 Escribe *menu* para regresar al menú."
 
             msg.body(reporte)
@@ -870,38 +893,66 @@ def whatsapp_bot():
 
     # Opción 5: Revisar stock mínimo / vencimiento
     elif incoming_msg == "5":
-        hoja = get_inventory_sheet_for_number(phone_number)
-        if not hoja:
-            msg.body("❌ No se encontró tu hoja de productos.")
+        hoja_productos = get_inventory_sheet_for_number(phone_number)
+        hoja_lotes = get_lotes_sheet_for_number(phone_number)
+
+        if not hoja_productos or not hoja_lotes:
+            msg.body("❌ No se encontró alguna de tus hojas de inventario.")
             return str(resp)
 
-        productos = obtener_productos(hoja)
-        if not productos:
-            msg.body("📭 No hay productos registrados.")
-            return str(resp)
+        productos = hoja_productos.get_all_values()[1:]
+        lotes = hoja_lotes.get_all_values()[1:]
 
         hoy = datetime.today().date()
         stock_minimos = []
         proximos_vencer = []
+        vencidos = []
 
-        for p in productos:
+        # Mapeo código → info (para encontrar stock mínimo y marca)
+        productos_dict = {p[0]: {"nombre": p[1], "marca": p[2], "stock_minimo": int(p[5])} for p in productos if len(p) >= 6}
+
+        for lote in lotes:
             try:
-                # Productos con stock en o por debajo del mínimo
-                if int(p["cantidad"]) <= int(p["stock_minimo"]):
-                    stock_minimos.append(f"- {p['nombre']} ({p['marca']}) | Stock: {p['cantidad']} | Mínimo: {p['stock_minimo']}")
+                codigo = lote[0]
+                nombre = lote[1]
+                lote_id = lote[2]
+                fecha_venc = lote[4]
+                disponible = int(lote[7])
+                producto_info = productos_dict.get(codigo)
 
-                # Productos que vencen dentro de 21 días
-                fecha_cad = datetime.datetime.strptime(p["fecha"], "%Y-%m-%d").date()
-                if 0 <= (fecha_cad - hoy).days <= 21:
-                    proximos_vencer.append(f"- {p['nombre']} ({p['marca']}) | Vence: {p['fecha']}")
+                if not producto_info:
+                    continue
+
+                stock_minimo = producto_info["stock_minimo"]
+                marca = producto_info["marca"]
+
+                # Stock mínimo
+                if disponible <= stock_minimo:
+                    stock_minimos.append(
+                        f"- {nombre} ({marca}), Lote {lote_id} | Stock: {disponible} | Mínimo: {stock_minimo}"
+                    )
+
+                # Revisar vencimiento si aplica
+                if fecha_venc:
+                    fecha_obj = datetime.strptime(fecha_venc, "%Y-%m-%d").date()
+                    dias_restantes = (fecha_obj - hoy).days
+
+                    if fecha_obj < hoy:
+                        vencidos.append(f"- {nombre} ({marca}), Lote {lote_id} | Venció: {fecha_venc}")
+                    elif dias_restantes <= 21:
+                        proximos_vencer.append(f"- {nombre} ({marca}), Lote {lote_id} | Vence: {fecha_venc}")
+
             except Exception:
-                continue  # Si hay error en datos, los ignoramos
+                continue
 
         respuesta = "📋 *Productos con stock mínimo:*\n"
         respuesta += "\n".join(stock_minimos) if stock_minimos else "✅ No hay productos con stock bajo."
 
-        respuesta += "\n\n⏰ *Productos próximos a vencer (21 días):*\n"
+        respuesta += "\n\n⏰ *Productos próximos a vencer (≤21 días):*\n"
         respuesta += "\n".join(proximos_vencer) if proximos_vencer else "✅ No hay productos próximos a vencer."
+
+        respuesta += "\n\n❌ *Productos vencidos:*\n"
+        respuesta += "\n".join(vencidos) if vencidos else "✅ No hay productos vencidos."
 
         respuesta += "\n\n📲 Escribe *menu* para regresar al menú principal."
         msg.body(respuesta)
