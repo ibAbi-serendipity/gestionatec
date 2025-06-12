@@ -3,7 +3,13 @@ import logging
 from datetime import datetime, date
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name, get_historial_sheet_for_number  # Importamos la función para obtener los productos
+from google_sheets import obtener_productos
+from google_sheets import get_client_sheet_url
+from google_sheets import get_inventory_sheet_for_number
+from google_sheets import registrar_movimiento
+from google_sheets import get_client_name
+from google_sheets import get_historial_sheet_for_number  
+from google_sheets import get_lotes_sheet_for_number
 
 app = Flask(__name__)
 user_states = {}  # Aquí definimos el diccionario para guardar el estado de los usuarios
