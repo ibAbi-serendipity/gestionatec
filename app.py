@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from google_sheets import obtener_productos, get_inventory_sheet_for_number, registrar_movimiento, get_client_name, get_historial_sheet_for_number  # Importamos la función para obtener los productos
@@ -456,6 +456,9 @@ def whatsapp_bot():
         # Paso 6: Registrar entrada
         elif estado.get("step") == "entrada_codigo":
             hoja = get_inventory_sheet_for_number(phone_number)
+            if not hoja:
+                msg.body("⚠️ No se pudo acceder a tu hoja de productos. Es posible que se haya superado el límite de uso. Intenta nuevamente más tarde.")
+                return str(resp)
             productos = hoja.get_all_values()
             codigo = incoming_msg.strip().upper()
 
@@ -501,7 +504,7 @@ def whatsapp_bot():
                 estado["step"] = "confirmar_fecha_compra_invalida"
                 return str(resp)
 
-            hoy = datetime.date.today()
+            hoy = date.today()
             if fecha_compra_obj > hoy:
                 msg.body("❌ La fecha de compra no puede ser futura. Ingresa una fecha válida o escribe *menu* para salir:")
                 return str(resp)
@@ -674,7 +677,7 @@ def whatsapp_bot():
         elif estado.get("step") == "salida_fecha":
             fecha_salida = incoming_msg.strip()
             fecha_obj = normalizar_fecha(fecha_salida)
-            hoy = datetime.date.today()
+            hoy = date.today()
 
             if not fecha_obj:
                 msg.body("❌ Formato de fecha inválido. Usa el formato AAAA-MM-DD.")
@@ -847,7 +850,7 @@ def whatsapp_bot():
             # Cálculo de pérdidas por productos vencidos
             perdidas = 0.0
             hoja_lotes = get_lotes_sheet_for_number(phone_number)
-            hoy = datetime.date.today()
+            hoy = date.today()
             lotes = hoja_lotes.get_all_values()[1:]
             for row in lotes:
                 try:
